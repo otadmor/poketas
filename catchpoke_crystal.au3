@@ -105,33 +105,33 @@ $oDictionary.Add ("letters\balls3.bmp",    "[BALLS3]"  )
 ;$oDictionary.Add ("letters\balls4.bmp",    "[BALLS4]"  )
 
 Func DumpBitmap($bm1)
-    
+
     $Bm1W = _GDIPlus_ImageGetWidth($bm1)
     $Bm1H = _GDIPlus_ImageGetHeight($bm1)
     $BitmapData1 = _GDIPlus_BitmapLockBits($bm1, 0, 0, $Bm1W, $Bm1H, $GDIP_ILMREAD, $GDIP_PXF01INDEXED)
     $Stride = DllStructGetData($BitmapData1, "Stride")
     $Scan0 = DllStructGetData($BitmapData1, "Scan0")
-    
+
     $ptr1 = $Scan0
     $size1 = $Bm1H * $Stride
-	
-	
+
+
 	$tmps = DllStructCreate("byte[" & $size1 & "]", $ptr1)
 	$s = DllStructGetData($tmps, 1)
    $tmps = 0
 
 
     _GDIPlus_BitmapUnlockBits($bm1, $BitmapData1)
-    
+
     Return String($s )
-    
-    
-EndFunc 
+
+
+EndFunc
 _GDIPlus_Startup()
 
 $iDictionary = ObjCreate("Scripting.Dictionary")
 For $vKey In $oDictionary
-   
+
    $bm1 = _GDIPlus_ImageLoadFromFile($vKey)
  If @error Then
         _GDIPlus_Shutdown()
@@ -145,25 +145,25 @@ For $vKey In $oDictionary
    EndIf
    ;if $vKey == "letters\U.bmp" Then
 	;  ConsoleWrite("U is " & $vKey & " data " & $bitmap_binary & @CRLF )
-	 ; endif 
+	 ; endif
 	$iDictionary.Add($bitmap_binary, $oDictionary.Item($vKey))
-	
+
 	_GDIPlus_ImageDispose($bm1)
  Next
-	
+
 ; Z, H, N got thesame hash. so lame function
 Func match_hash_digit($hash)
    If not $iDictionary.Exists($hash) Then
 	  Return -1
    EndIf
    return $iDictionary.Item($hash)
-	
+
 EndFunc
-	
+
 Func get_screen($x, $y, $width, $height, $hWnd)
 	$hBMP = _ScreenCapture_CaptureWnd ("", $hWnd, $x, $y, $x + $width, $y + $height, False)
 	$hImage =  _GDIPlus_BitmapCreateFromHBITMAP($hBMP)
-   
+
    $iX = _GDIPlus_ImageGetWidth($hImage)
    $iY = _GDIPlus_ImageGetHeight($hImage)
    $bm2 = _GDIPlus_BitmapCloneArea($hImage, 0, 0, $iX, $iY, $GDIP_PXF01INDEXED)
@@ -171,15 +171,15 @@ Func get_screen($x, $y, $width, $height, $hWnd)
    ; _GDIPlus_ImageSaveToFile($bm2, "D:\catchpoke\poketas\ss\aaa" & $x & "_" & $y & ".bmp")
    _GDIPlus_ImageDispose($bm2)
    _GDIPlus_ImageDispose($hImage)
-   
+
    _WinApi_DeleteObject($hImage)
    _WinAPI_DeleteObject($hBMP)
    Return $res
-EndFunc	
+EndFunc
 
 Func get_one_digit($x, $y, $hWnd)
    $scr_data = get_screen(8 + 32 * $x, 50 + 32 * $y, 31, 31, $hWnd)
-   
+
 	$res = match_hash_digit($scr_data)
 	; ConsoleWrite("found " & $res & "with data " & $scr_data & @CRLF)
 	return $res
@@ -191,9 +191,9 @@ Func get_string($x, $y, $hWnd, $max_length = -1, $terminate = -1, $start = 0)
 		$max_length = 0x7FFFFFFF ; max int (singed 32 bit)
 	EndIF
 	For $index = $start To $max_length Step 1
-		
+
 		$digit = get_one_digit($x + $index, $y, $hWnd)
-		
+
 		If $digit == $terminate or $digit == -1 Then
 			ExitLoop
 		EndIF
@@ -213,7 +213,7 @@ Func get_right_string($x, $y, $hWnd, $max_length = -1, $terminate = -1, $start =
 		$max_length = 0x7FFFFFFF ; max int (singed 32 bit)
 	EndIF
 	For $index = $start To $max_length Step 1
-		
+
 		$digit = get_one_digit($x + $index, $y, $hWnd)
 		If $digit == $terminate or $digit == -1 Then
 			ExitLoop
@@ -239,87 +239,87 @@ Func get_right_number($x, $y, $hWnd)
 
 	Return Int(StringTrimLeft($string_result, $i))
  EndFunc
- 
+
  Func get_fight_level($hWnd)
    Return get_number(7,1, $hWnd)
 EndFunc
 
 Func get_level($hWnd)
 	Return get_number(7, 1, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_next_level($hWnd)
 	Return get_number(18, 14, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_hp($hWnd)
 	Return get_right_number(5, 10, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_current_hp($hWnd)
 	Return get_right_number(1, 10, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_attack($hWnd)
 	Return get_right_number(17, 9, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_defense($hWnd)
 	Return get_right_number(17, 11, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_speed($hWnd)
 	Return get_right_number(17, 17, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_special_attack($hWnd)
 	Return get_right_number(17, 13, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_special_defense($hWnd)
 	Return get_right_number(17, 15, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_status($hWnd)
    return -1
 	;Return get_string(176, 88, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_pokedex_number($hWnd)
 	Return get_number(10, 0, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_type1($hWnd)
 	Return get_string(1, 15, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_type2($hWnd)
 	Return get_string(1, 16, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_trainer_id($hWnd)
 	Return get_number(2, 10, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_trainer_name($hWnd)
 	Return get_string(2, 13, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_name($hWnd)
 	Return get_string(1, 0, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_exp($hWnd)
 	Return get_number(14, 10, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_exp_left($hWnd)
 	Return get_number(16, 13, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_item($hWnd)
 	Return get_string(8, 8, $hWnd)
-EndFunc	
+EndFunc
 
 Func get_move_name($move_index, $hWnd)
 	Return get_string(8, 10 + 2 * $move_index, $hWnd)
@@ -368,9 +368,9 @@ Func is_same_stat($level, $hp, $attack, $defence, $speed, $special, $hWnd)
 	Return get_level($hWnd) == $level and get_hp($hWnd) == $hp and get_attack($hWnd) == $attack and get_defence($hWnd) == $defence and get_speed($hWnd) == $speed and get_special($hWnd) == $special
 EndFunc
 
-Func get_stat_hp($level, $base, $dv_attack, $dv_defence, $dv_speed, $dv_special, $ev)
-	$dv = BitShift(BitAND($dv_attack, 1), -3) + BitShift(BitAND($dv_defence, 1), -2) + BitShift(BitAND($dv_speed, 1), -1) + BitAND($dv_special, 1)
-	
+Func get_stat_hp($level, $base, $dv_attack, $dv_defense, $dv_speed, $dv_special, $ev)
+	$dv = BitShift(BitAND($dv_attack, 1), -3) + BitShift(BitAND($dv_defense, 1), -2) + BitShift(BitAND($dv_speed, 1), -1) + BitAND($dv_special, 1)
+
 	If $ev < 1 Then
 		$ev = 1
 	EndIf
@@ -382,6 +382,14 @@ Func get_stat_value($level, $base, $dv, $ev)
 		$ev = 1
 	EndIf
 	Return Floor($level * (($base + $dv + (Sqrt($ev - 1) + 1) / 8) / 50) + 5)
+ EndFunc
+
+ Func get_hp_dv_value($level, $base, $ev, $stat)
+	If $ev < 1 Then
+		$ev = 1
+	EndIf
+    Return ($stat - 10) * 50 / $level - $base - 50 - (Sqrt($ev - 1) + 1) / 8
+
 EndFunc
 
 Func get_dv_value($level, $base, $ev, $stat)
@@ -412,7 +420,7 @@ Func get_selected_pokemon($hWnd)
 		EndIf
 	Next
  EndFunc
- 
+
  Func fight_started($hWnd)
 	if get_string(1, 14, $hWnd, 4) == "Wild" Then
 	   return True
@@ -432,9 +440,9 @@ Func is_max_stat($level, $hWnd)
 	$max_defence = get_max_stat($level, 43)
 	$max_speed = get_max_stat($level, 65)
 	$max_special = get_max_stat($level, 50)
-	
+
 	Return is_same_stat($level, $max_hp, $max_attack, $max_defence, $max_speed, $max_special, $hWnd)
-	
+
 EndFunc
 
 Global $max_stat = 0
@@ -453,9 +461,9 @@ Func load_state($hWnd)
 EndFunc
 
 Func save_stat($hWnd)
-	
+
 	$current_stat = get_sum_stat($hWnd)
-	
+
 	If $current_stat > $max_stat Then
 		$max_stat = $current_stat
 		save_state()
@@ -464,16 +472,17 @@ EndFunc
 
 
 Func view_stat()
-	
+
 	Local $hWnd = WinGetHandle($emuwintitle)
-	
+
 	msgbox(0, "stat", "name = " & get_name($hWnd) & "\nhp = " & get_hp($hWnd) & "\nattack = " & get_attack($hWnd) & "\ndefence = " & get_defense($hWnd) & "\nspeed = " & get_speed($hWnd) & "\nspecial = " & get_special($hWnd))
 EndFunc
 
 
 Func get_pokemon_amount($hWnd)
    For $index = 6 To 1 Step -1
-		If get_pokemon_name($index - 1, $hWnd) <> "" and get_pokemon_name($index - 1, $hWnd) <> "NCEL"  Then
+		 $pokemon_name = get_pokemon_name($index - 1, $hWnd)
+		If $pokemon_name <> "" and $pokemon_name <> "NCEL"  Then
 			Return $index
 		EndIf
 	 Next
@@ -491,16 +500,16 @@ Func good_stats($hWnd)
    Wend
    while get_one_digit(11, 4, $hWnd) <> "[RIGHT]"  and $is_running
 	  Send("{DOWN}")
-	  
+
    wend
-   
+
    Send("{X}")
-   
+
    $pokemon_amount = get_pokemon_amount($hWnd)
-   
+
    $lvl = get_pokemon_level($pokemon_amount - 1, $hWnd)
-	  
-   $max_hp = get_max_hp($lvl, 50) 
+
+   $max_hp = get_max_hp($lvl, 50)
    $max_attack = get_max_stat($lvl, 64)
    $max_defense = get_max_stat($lvl, 50)
    $max_speed = get_max_stat($lvl, 41)
@@ -508,30 +517,46 @@ Func good_stats($hWnd)
    $max_special_defense = get_max_stat($lvl, 50)
    $mid_special_attack = get_mid_stat($lvl, 45)
    $mid_special_defense = get_mid_stat($lvl, 50)
-   
+
   ; ConsoleWrite($max_hp & " " & $max_attack & " " & $max_defense & " " & $max_speed & " " & $max_special_attack & " " & $max_special_defense & " " & @CRLF)
 
 
    ; i dont care of the hp gene because its created by the others
-   ;$hp = get_pokemon_hp($pokemon_amount - 1, $hWnd)
+   $hp = get_pokemon_hp($pokemon_amount - 1, $hWnd)
    ;if $hp <> $max_hp Then
 	;	 Return False
    ;Endif
-   
-   
+   $hp_dv = get_hp_dv_value($lvl, 50, 0, $hp)
+   $dv_attack_lsb = BitAND(BitShift($hp_dv, 3), 1)
+   $dv_defense_lsb = BitAND(BitShift($hp_dv, 2), 1)
+   $dv_speed_lsb = BitAND(BitShift($hp_dv, 1), 1)
+   $dv_special_lsb = BitAND($hp_dv, 1)
+
+   ; the hp tells if we have good defense, so we can save some time here
+   ; this is also good if the defense dv can be something like 14-15 and
+   ; we want to make sure its 15. the defense value itself cant give us
+   ; that information
+   if $dv_defense_lsb <> 1 Then
+		 Return False
+   Endif
+   ; because of rounding issues, we cant tell the same about the special
+   ;if $dv_special_lsb <> 1 Then
+	;	 Return False
+   ;Endif
+
    ;AutoItSetOption("SendKeyDownDelay", 50)
    ;AutoItSetOption("SendKeyDelay", 50)
-   ; if get_pokemon_name($pokemon_amount, $hWnd) 
+   ; if get_pokemon_name($pokemon_amount, $hWnd)
 
    while get_selected_pokemon($hWnd) <> $pokemon_amount - 1 and $is_running
 	  ;ConsoleWrite("cur poke=" & get_selected_pokemon($hWnd))
 	  Send("{UP}")
-	  
+
    Wend
-   
+
    Send("{X}{X}{RIGHT}{RIGHT}")
-   
-   
+
+
    	$attack = get_attack($hWnd)
 	$defense = get_defense($hWnd)
 	$speed = get_speed($hWnd)
@@ -540,8 +565,8 @@ Func good_stats($hWnd)
    ;AutoItSetOption("SendKeyDelay", 0)
    ;AutoItSetOption("SendKeyDownDelay", 10)
    Send("{Z}{Z}{Z}")
-   
-   
+
+
    ; ConsoleWrite("state is lvl=" & $lvl & ",hp=" & $hp & ", attack=" & $attack & ", defense=" & $defense & ", speed=" & $speed & ", special_attack=" & $special_attack & ", special_defense=" & $special_defense & @CRLF)
    ;if $attack <> $max_attack or $defense <> $max_defense or $speed <> $max_speed or $special_attack <> $max_special_attack or $special_defense <> $max_special_defense Then
 ;	  Return False
@@ -550,7 +575,7 @@ Func good_stats($hWnd)
    if $pokemon_amount == 6 then
 	  end_catch()
    EndIf
-   
+
    if $defense == $max_defense and ($special_attack == $max_special_attack and $special_defense == $max_special_defense or $special_attack == $mid_special_attack and $special_defense == $mid_special_defense) Then
 	  Return True
    EndIf
@@ -560,18 +585,20 @@ EndFunc
 
 Func goto_ball_bag($hWnd)
 
-   
+   if get_string(0, 8, $hWnd, 4) == "[BALLS0][BALLS1][BALLS2][BALLS3][BALLS0]" Then
+	  Return
+   EndIf
    Send("{TAB up}")
-   
+
    AutoItSetOption("SendKeyDelay", 50)
    AutoItSetOption("SendKeyDownDelay", 50)
-   
+
    while get_string(0, 8, $hWnd, 4) <> "[BALLS0][BALLS1][BALLS2][BALLS3][BALLS0]" and $is_running
 	  ;ConsoleWrite("go other bag pocket" & @CRLF)
 	  Send("{RIGHT}")
-	  
+
    WEnd
-   
+
    Send("{TAB down}")
    AutoItSetOption("SendKeyDelay", 0)
    AutoItSetOption("SendKeyDownDelay", 0)
@@ -581,7 +608,7 @@ EndFunc
 
 Global $is_running = True
 Func set_keys()
-	
+
 	HotKeySet("{F7}", "view_stat")
 	HotKeySet("{F8}", "catch_once")
 	HotKeySet("{F9}", "catch_loop")
@@ -596,91 +623,92 @@ Func end_catch()
 	  Send("{TAB up}")
 	$is_running = False
  EndFunc
- 
+
  Func try_catch_loop($hWnd)
-   AutoItSetOption("SendKeyDelay", 0)
-   AutoItSetOption("SendKeyDownDelay", 10)
-   
+   AutoItSetOption("SendKeyDelay", 10)
+   AutoItSetOption("SendKeyDownDelay",10)
+
    Send("{X}")
-   
+
    AutoItSetOption("SendKeyDelay", 100)
    Send("+{F2}")
-   
-   
+
+
    AutoItSetOption("SendKeyDelay", 200)
    Send("{X}")
-   
-   
+
+
    ;ConsoleWrite("Catching " & get_message_string($hWnd))
-   
+
    ; get_message_string($hWnd) == "Oh no! The POK{e}MON broke free!"
    AutoItSetOption("SendKeyDownDelay", 50)
    While get_string(1, 14, $hWnd, 7) <> "Gotcha!" and $is_running
 	  ;ConsoleWrite("try catch again!" & @CRLF)
 	  AutoItSetOption("SendKeyDelay", 100)
 	  Send("{F2}")
-	  
+
 	  ;Send("{RIGHT up}")
-	  
+
 	  AutoItSetOption("SendKeyDelay", 200)
 	  Send("{X}")
-	  
-	  
+
+
    Wend
    AutoItSetOption("SendKeyDownDelay", 10)
    AutoItSetOption("SendKeyDelay", 0)
    Send("{X}")
-   
+
    if get_string(1, 14, $hWnd, 4) <> "Give" Then
 
 	  Send("{X}{X}{X}{X}")
-	  
+
    EndIF
-   
+   ;AutoItSetOption("SendKeyDelay", 10)
+   ;Send("{Y}")
    Send("{DOWN}{X}")
-	;Sleep(200)  
+   Sleep(200)
 EndFunc
 Func goto_bag($hWnd)
    ;ConsoleWrite(get_one_digit(9, 16, $hWnd))
    ;AutoItSetOption("SendKeyDelay", 10)
-   while get_one_digit(9, 16, $hWnd) <> "[RIGHT]" 
-	  
+   while get_one_digit(9, 16, $hWnd) <> "[RIGHT]"
+
 	  Send("{DOWN}")
 
-	  
-	  
+
+
 
    wend
 
    AutoItSetOption("SendKeyDownDelay", 50)
    AutoItSetOption("SendKeyDelay", 200)
    Send("{X}")
-   
+
    ;AutoItSetOption("SendKeyDelay", 0)
 EndFunc
 
 Func see_wild($hWnd)
-   
+
    AutoItSetOption("SendKeyDownDelay", 0)
    Send("{RIGHT down}")
 		 AutoItSetOption("SendKeyDelay", 50)
 		 AutoItSetOption("SendKeyDownDelay", 50)
 	while not fight_started($hWnd) and $is_running
 		 Send("{LEFT}")
-		 
-		 
+
+
 		 ;if fight_started($hWnd) or not $is_running Then
-			;   ExitLoop	
+			;   ExitLoop
 			;endif
-		 
+
 	  WEnd
    AutoItSetOption("SendKeyDelay", 0)
 	  Send("{RIGHT up}")
 	  AutoItSetOption("SendKeyDownDelay", 10)
 	  Send("{X}")
-	  
+
    EndFunc
-   
+
 Func should_fight($hWnd)
    ;return True
    If get_name($hWnd) <> $needed_pokemon Then ; or get_fight_level($hWnd) <> $needed_level Then
@@ -688,9 +716,9 @@ Func should_fight($hWnd)
 	 Send("{F1}")
 	 AutoItSetOption("SendKeyDelay", 0)
 	 Return False
-;	 while get_one_digit(15, 16, $hWnd) <> "[RIGHT]" 
+;	 while get_one_digit(15, 16, $hWnd) <> "[RIGHT]"
 ;		Send("{RIGHT}")
-;		 
+;
 
 ;		Send("{DOWN}")
 
@@ -698,7 +726,7 @@ Func should_fight($hWnd)
 ;	  wend
 ;	  ;ConsoleWrite("on right")
 ;	 Send("{X}")
-;	  
+;
 
 ;	  Send("{X}")
 
@@ -709,14 +737,14 @@ EndFunc
 
 Func catch_loop()
 	$is_running = True
-	
+
 	unset_keys()
 
    ; Send("+{F1}")
 	Local $hWnd = WinGetHandle($emuwintitle)
-	
+
 	;load_state($hWnd)
-	
+
 	Send("{TAB down}")
 	Do
 
@@ -726,8 +754,8 @@ Func catch_loop()
 		 if not  $is_running Then
 			ExitLoop
 		 endif
-		 
-		
+
+
 		 ;ConsoleWrite("got " & get_name($hWnd) & @CRLF)
 		if not should_fight($hWnd) Then
 		   ContinueLoop
@@ -742,20 +770,20 @@ Func catch_loop()
 		 ;if not  $is_running Then
 		;	ExitLoop
 		 ;endif
-		 
-		 Send("{X}")
-		 
+
+		 ;Send("{X}")
+
 		 ;ConsoleWrite("catching" & @CRLF)
 		 try_catch_loop($hWnd)
 		 if not  $is_running Then
 			ExitLoop
 		 endif
-		 
+
 		 ;ConsoleWrite("checking stats" & @CRLF)
 		 If good_stats($hWnd) Then
-			WriteConsole("Caught good pkmn!" & @CRLF)
-			Send("+{F3}")
-			   
+			ConsoleWrite("Caught good pkmn!" & @CRLF)
+			Send("+{F1}")
+
 		 Else
 			;WriteConsole("Caught bad pkmn!" & @CRLF)
 		 EndIf
@@ -763,7 +791,7 @@ Func catch_loop()
 			ExitLoop
 		 endif
 		 Send("{F1}")
-		 
+
 		;save_stat($hWnd)
 	Until Not $is_running ;  is_max_stat(10, $hWnd) Or
 	end_catch()
@@ -796,7 +824,7 @@ Local $hWnd = WinGetHandle($emuwintitle)
 ;Send("{TAB up}")
 ;try_catch_loop($hWnd)
 ;ConsoleWrite(get_string(1, 14, $hWnd, 7))
- 
+
 
 ;Send("{TAB down}")
 ;AutoItSetOption("SendKeyDownDelay", 5000)
