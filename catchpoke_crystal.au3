@@ -127,6 +127,17 @@ $oDictionary.Add ("letters\sign_right_top2.bmp",    "[SRT]"  )
 $oDictionary.Add ("letters\sign_left_bottom2.bmp",    "[SLB]"  )
 $oDictionary.Add ("letters\sign_right_bottom2.bmp",    "[SRB]"  )
 
+
+$oDictionary.Add ("letters\door_left_top1.bmp",    "[DLT]"  )
+$oDictionary.Add ("letters\door_right_top1.bmp",    "[DRT]"  )
+$oDictionary.Add ("letters\door_left_bottom1.bmp",    "[DLB]"  )
+$oDictionary.Add ("letters\door_right_bottom1.bmp",    "[DRB]"  )
+$oDictionary.Add ("letters\door_left_top2.bmp",    "[DLT]"  )
+$oDictionary.Add ("letters\door_right_top2.bmp",    "[DRT]"  )
+$oDictionary.Add ("letters\door_left_bottom2.bmp",    "[DLB]"  )
+$oDictionary.Add ("letters\door_right_bottom2.bmp",    "[DRB]"  )
+
+
 $oDictionary.Add ("letters\oldman_left1.bmp",    "[OML]"  )
 $oDictionary.Add ("letters\oldman_right1.bmp",    "[OMR]"  )
 $oDictionary.Add ("letters\oldman_left2.bmp",    "[OML]"  )
@@ -275,7 +286,7 @@ Func get_right_number($x, $y, $hWnd)
 EndFunc
 
 Func get_level($hWnd)
-	Return get_number(7, 1, $hWnd)
+	Return get_number(15, 0, $hWnd)
 EndFunc
 
 Func get_next_level($hWnd)
@@ -335,9 +346,14 @@ Func get_trainer_name($hWnd)
 	Return get_string(2, 13, $hWnd)
 EndFunc
 
-Func get_name($hWnd)
+Func get_fight_name($hWnd)
 	Return get_string(1, 0, $hWnd)
 EndFunc
+
+Func get_name($hWnd)
+	Return get_string(8, 2, $hWnd)
+EndFunc
+
 
 Func get_exp($hWnd)
 	Return get_number(14, 10, $hWnd)
@@ -529,10 +545,19 @@ Func get_pokemon_by_name($hWnd, $needed_pokemon_name)
 	 return -1
 EndFunc
 
-Func is_sign_at($x, $y, $hWnd)
-   return get_one_digit($x, $y, $hWnd) == "[SLT]" and get_one_digit($x + 1, $y, $hWnd) == "[SRT]" and get_one_digit($x, $y + 1, $hWnd) == "[SLB]" and get_one_digit($x + 1, $y + 1, $hWnd) == "[SRB]"
+Func is_object4_at($x, $y, $o, $hWnd)
+   $existing_object = get_one_digit($x, $y, $hWnd) & get_one_digit($x + 1, $y, $hWnd) & get_one_digit($x, $y + 1, $hWnd) & get_one_digit($x + 1, $y + 1, $hWnd)
+   $needed_object = "[" & $o & "LT][" & $o & "RT][" & $o & "LB][" & $o & "RB]"
+   ;ConsoleWrite($existing_object & "/" & $needed_object  & @CRLF)
+   return $existing_object == $needed_object
 EndFunc
 
+Func is_sign_at($x, $y, $hWnd)
+   return is_object4_at($x, $y, "S", $hWnd); get_one_digit($x, $y, $hWnd) == "[SLT]" and get_one_digit($x + 1, $y, $hWnd) == "[SRT]" and get_one_digit($x, $y + 1, $hWnd) == "[SLB]" and get_one_digit($x + 1, $y + 1, $hWnd) == "[SRB]"
+EndFunc
+Func is_door_at($x, $y, $hWnd)
+   return is_object4_at($x, $y, "D", $hWnd)
+EndFunc
 
 
 $needed_pokemon = "LARVITAR"
@@ -640,6 +665,64 @@ Func good_stats($hWnd, $pokemon_number, $is_catching)
 	  EndIf
    EndIf
    Return False
+EndFunc
+
+
+Enum $STAT_INVALID_POKEMON = 0, $STAT_INVALID_STAT, $STAT_GOOD_STAT
+
+Func good_stats_screen($hWnd)
+   ; if get_pokemon_name($pokemon_amount, $hWnd)
+   if get_name($hWnd) <> $needed_pokemon Then
+	  Return $STAT_INVALID_POKEMON
+   EndIf
+
+   $lvl = get_level($hWnd)
+
+   $max_hp = get_max_hp($lvl, 50)
+   $max_attack = get_max_stat($lvl, 64)
+   $max_defense = get_max_stat($lvl, 50)
+   $max_speed = get_max_stat($lvl, 41)
+   $max_special_attack = get_max_stat($lvl, 45)
+   $max_special_defense = get_max_stat($lvl, 50)
+   $mid_special_attack = get_mid_stat($lvl, 45)
+   $mid_special_defense = get_mid_stat($lvl, 50)
+
+   ;ConsoleWrite($max_hp & " " & $max_attack & " " & $max_defense & " " & $max_speed & " " & $max_special_attack & " " & $max_special_defense & " " & @CRLF)
+
+
+   ; i dont care of the hp gene because its created by the others
+   $hp = get_hp($hWnd)
+   ;ConsoleWrite($pokemon_number  & " hp " &  $hp & "/" & $max_hp & @CRLF)
+   if $hp <> $max_hp Then
+	  Return $STAT_INVALID_STAT
+   Endif
+   $hp_dv = get_hp_dv_value($lvl, 50, 0, $hp)
+   $dv_attack_lsb = BitAND(BitShift($hp_dv, 3), 1)
+   $dv_defense_lsb = BitAND(BitShift($hp_dv, 2), 1)
+   $dv_speed_lsb = BitAND(BitShift($hp_dv, 1), 1)
+   $dv_special_lsb = BitAND($hp_dv, 1)
+
+   AutoItSetOption("SendKeyDownDelay", 50)
+   AutoItSetOption("SendKeyDelay", 50)
+
+   Send("{RIGHT 2}")
+
+
+   	$attack = get_attack($hWnd)
+	$defense = get_defense($hWnd)
+	$speed = get_speed($hWnd)
+	$special_attack = get_special_attack($hWnd)
+	$special_defense = get_special_defense($hWnd)
+
+	Send("{LEFT 2}")
+
+
+   ; ConsoleWrite("state is lvl=" & $lvl & ",hp=" & $hp & ", attack=" & $attack & ", defense=" & $defense & ", speed=" & $speed & ", special_attack=" & $special_attack & ", special_defense=" & $special_defense & @CRLF)
+
+   if $attack == $max_attack and $defense == $max_defense and $speed == $max_speed and $special_attack == $max_special_attack and $special_defense == $max_special_defense Then
+	  Return $STAT_GOOD_STAT
+   EndIf
+   Return $STAT_INVALID_STAT
 EndFunc
 
 Func goto_ball_bag($hWnd)
@@ -771,7 +854,7 @@ Func see_wild($hWnd)
 
 Func should_fight($hWnd)
    ;return True
-   If get_name($hWnd) <> $needed_pokemon Then ; or get_fight_level($hWnd) <> $needed_level Then
+   If get_fight_name($hWnd) <> $needed_pokemon Then ; or get_fight_level($hWnd) <> $needed_level Then
 	  AutoItSetOption("SendKeyDelay", 50)
 	 Send("{F1}")
 	 AutoItSetOption("SendKeyDelay", 0)
@@ -895,6 +978,7 @@ Func wait_for_hatch($hWnd, $pokemon_amount)
 	  AutoItSetOption("SendKeyDelay", 500)
 	  AutoItSetOption("SendKeyDownDelay", 10)
 	  Send("{X}")
+	  end_poke_catched($hWnd)
 	  Return True
    EndIF
    Return False
@@ -917,8 +1001,8 @@ Func goto_pokemon_center($hWnd)
    AutoItSetOption("SendKeyDownDelay", 10)
    Send("{TAB up}")
 
-   AutoItSetOption("SendKeyDelay", 150)
-   AutoItSetOption("SendKeyDownDelay", 20)
+   AutoItSetOption("SendKeyDelay", 500)
+   AutoItSetOption("SendKeyDownDelay", 50)
    while get_string(18, 4, $hWnd) <> "[MA][RT]" and $is_running
 	  Send("{UP}")
    Wend
@@ -1001,8 +1085,8 @@ Func exit_pokemon_center($hWnd)
    AutoItSetOption("SendKeyDelay", 10)
    AutoItSetOption("SendKeyDownDelay", 50)
    Send("{LEFT}{DOWN}{TAB up}")
-   AutoItSetOption("SendKeyDelay", 150)
-   AutoItSetOption("SendKeyDownDelay", 20)
+   AutoItSetOption("SendKeyDelay", 500)
+   AutoItSetOption("SendKeyDownDelay", 50)
    while get_one_digit(1, 9, $hWnd) <> "[STAIRS]" and $is_running
 	  ;ConsoleWrite(get_one_digit(1, 9, $hWnd) & @CRLF)
 	  Send("{LEFT}")
@@ -1015,8 +1099,8 @@ Func exit_pokemon_center($hWnd)
    AutoItSetOption("SendKeyDownDelay", 50)
    Send("{DOWN}{TAB up}")
 
-   AutoItSetOption("SendKeyDelay", 150)
-   AutoItSetOption("SendKeyDownDelay", 20)
+   AutoItSetOption("SendKeyDelay", 500)
+   AutoItSetOption("SendKeyDownDelay", 50)
    while get_string(18, 4, $hWnd) <> "[MA][RT]" and $is_running
 	  Send("{RIGHT}")
    Wend
@@ -1045,42 +1129,27 @@ Func goto_daycare($hWnd)
    AutoItSetOption("SendKeyDownDelay", 10)
    Send("{TAB up}")
 
-   AutoItSetOption("SendKeyDelay", 160)
-   AutoItSetOption("SendKeyDownDelay", 20)
+   AutoItSetOption("SendKeyDelay", 500)
+   AutoItSetOption("SendKeyDownDelay", 50)
 
    while not is_sign_at(16, 2, $hWnd) and not is_sign_at(12, 16, $hWnd) and $is_running
 	  Send("{LEFT}")
    Wend
 
-   while not is_sign_at(12, 0, $hWnd) and $is_running
+   while not is_sign_at(12, 4, $hWnd) and $is_running
 	  Send("{DOWN}")
    Wend
 
-   AutoItSetOption("SendKeyDelay", 150)
-   AutoItSetOption("SendKeyDownDelay", 50)
-   Send("{TAB down}")
-   AutoItSetOption("SendKeyDelay", 	10)
-   AutoItSetOption("SendKeyDownDelay", 50)
-   Send("{RIGHT}")
-   AutoItSetOption("SendKeyDelay", 10)
-   AutoItSetOption("SendKeyDownDelay", 10)
-   Send("{TAB up}")
-   AutoItSetOption("SendKeyDelay", 160)
-   AutoItSetOption("SendKeyDownDelay", 20)
+   while not is_sign_at(8, 4, $hWnd) and $is_running
+	  Send("{RIGHT}")
+   Wend
 
-   If get_one_digit(16, 6, $hWnd) == "[OML]" and get_one_digit(17, 6, $hWnd) == "[OMR]" Then
-	  while not is_sign_at(8, 0, $hWnd) and $is_running
-		 Send("{LEFT}")
-	  Wend
-	  while not is_sign_at(8, 4, $hWnd) and $is_running
-		 Send("{UP}")
-	  Wend
-
-	  while not (get_one_digit(14, 2, $hWnd) == "[OLL]" and get_one_digit(15, 2, $hWnd) == "[OLR]") and $is_running
+   If get_one_digit(18, 10, $hWnd) & get_one_digit(19, 10, $hWnd)== "[OML][OMR]" Then
+	  while not (get_one_digit(14, 2, $hWnd) & get_one_digit(15, 2, $hWnd) == "[OLL][OLR]") and $is_running
 		 Send("{RIGHT}")
 	  Wend
 
-	  while not (get_one_digit(14, 0, $hWnd) == "[OLL]" and get_one_digit(15, 0, $hWnd) == "[OLR]") and $is_running
+	  while not (get_one_digit(14, 0, $hWnd) & get_one_digit(15, 0, $hWnd) == "[OLL][OLR]") and $is_running
 		 Send("{DOWN}")
 	  Wend
 	  AutoItSetOption("SendKeyDelay", 300)
@@ -1107,27 +1176,20 @@ Func goto_daycare($hWnd)
 	  AutoItSetOption("SendKeyDelay", 10)
 	  AutoItSetOption("SendKeyDownDelay", 20)
 	  Send("{TAB up}")
-	  AutoItSetOption("SendKeyDelay", 160)
-	  AutoItSetOption("SendKeyDownDelay", 20)
+	  AutoItSetOption("SendKeyDelay", 500)
+	  AutoItSetOption("SendKeyDownDelay", 50)
 
-	  while not (get_one_digit(14, 2, $hWnd) == "[OLL]" and get_one_digit(15, 2, $hWnd) == "[OLR]") and $is_running
+	  while not (get_one_digit(14, 2, $hWnd) & get_one_digit(15, 2, $hWnd) == "[OLL][OLR]") and $is_running
 		 Send("{UP}")
-	  Wend
-
-	  while not is_sign_at(12, 4, $hWnd) and $is_running
-		 Send("{LEFT}")
 	  Wend
 
 	  $has_new_egg = True
    Else
 	  $has_new_egg = False
-	  while not is_sign_at(12, 0, $hWnd) and $is_running
-		 Send("{LEFT}")
-	  Wend
    EndIf
 
-   while not is_sign_at(16, 8, $hWnd) and $is_running
-	  Send("{UP}")
+   while not is_sign_at(12, 4, $hWnd) and $is_running
+	  Send("{LEFT}")
    Wend
 
    AutoItSetOption("SendKeyDelay", 150)
@@ -1136,13 +1198,113 @@ Func goto_daycare($hWnd)
    AutoItSetOption("SendKeyDelay", 100)
    AutoItSetOption("SendKeyDownDelay", 10)
    Send("{LCTRL}")
+
+   AutoItSetOption("SendKeyDelay", 10)
+   AutoItSetOption("SendKeyDownDelay", 20)
+   Send("{UP down}")
+   while not is_door_at(10, 6, $hWnd) and $is_running
+   Wend
+   Send("{UP up}")
+
    AutoItSetOption("SendKeyDelay", 10)
    AutoItSetOption("SendKeyDownDelay", 50)
    Send("{RIGHT}")
 
+
+
    return $has_new_egg
 EndFunc
 
+Func check_hatched_pokemon($hWnd, $pokemon_amount)
+   Send("{X}")
+   AutoItSetOption("SendKeyDelay", 10)
+   AutoItSetOption("SendKeyDownDelay", 50)
+   Send("{TAB up}")
+
+   AutoItSetOption("SendKeyDelay", 150)
+   AutoItSetOption("SendKeyDownDelay", 50)
+   Send("{DOWN}{TAB down}")
+   AutoItSetOption("SendKeyDelay", 10)
+   AutoItSetOption("SendKeyDownDelay", 10)
+   Send("{X}")
+   $orig_pokemon_amount = $pokemon_amount
+   for $i = 0 to $orig_pokemon_amount - 1 Step 1
+	  $stat_res = good_stats_screen($hWnd)
+	  If $stat_res == $STAT_INVALID_POKEMON Then
+		 Send("{DOWN}")
+
+		 ContinueLoop
+	  ElseIf $stat_res == $STAT_INVALID_STAT Then
+		 ; release
+		 Send("{Z}")
+
+		 AutoItSetOption("SendKeyDelay", 10)
+		 AutoItSetOption("SendKeyDownDelay", 50)
+		 Send("{TAB up}")
+		 AutoItSetOption("SendKeyDelay", 150)
+		 AutoItSetOption("SendKeyDownDelay", 50)
+		 Send("{DOWN}{TAB down}")
+
+		 AutoItSetOption("SendKeyDelay", 10)
+		 AutoItSetOption("SendKeyDownDelay", 10)
+		 Send("{X}")
+		 AutoItSetOption("SendKeyDelay", 200)
+		 Send("{X}")
+		 ; end release
+
+
+
+	  ElseIf $stat_res == $STAT_GOOD_STAT Then
+		 ; deposit
+		 Send("{Z}")
+
+		 AutoItSetOption("SendKeyDelay", 10)
+		 AutoItSetOption("SendKeyDownDelay", 10)
+		 Send("{TAB up}")
+		 AutoItSetOption("SendKeyDelay", 150)
+		 AutoItSetOption("SendKeyDownDelay", 50)
+		 Send("{UP}{TAB down}")
+
+		 AutoItSetOption("SendKeyDelay", 30)
+		 AutoItSetOption("SendKeyDownDelay", 10)
+		 Send("{X}")
+
+		 ; end deposit
+
+	  EndIf
+	  AutoItSetOption("SendKeyDelay", 10)
+	  AutoItSetOption("SendKeyDownDelay", 10)
+	  if $i <> $orig_pokemon_amount - 1	 Then
+		 ; goto pokemon
+		 Send("{TAB up}")
+		 AutoItSetOption("SendKeyDelay", 150)
+		 AutoItSetOption("SendKeyDownDelay", 50)
+		 Send("{DOWN " & $i & "}{TAB down}")
+		 AutoItSetOption("SendKeyDelay", 10)
+		 AutoItSetOption("SendKeyDownDelay", 10)
+		 Send("{X}")
+
+		 ; goto status option
+		 Send("{TAB up}")
+		 AutoItSetOption("SendKeyDelay", 150)
+		 AutoItSetOption("SendKeyDownDelay", 50)
+		 Send("{DOWN}{TAB down}")
+
+		 ; enter status screen
+		 AutoItSetOption("SendKeyDelay", 10)
+		 AutoItSetOption("Se	ndKeyDownDelay", 10)
+		 Send("{X}")
+
+	  EndIf
+	  $pokemon_amount = $pokemon_amount - 1
+
+   Next
+   If $stat_res == $STAT_INVALID_POKEMON Then
+	  Send("{Z 2}")
+   EndIf
+   Return $pokemon_amount
+
+EndFunc
 
 Func breed_loop()
    	$is_running = True
@@ -1171,35 +1333,16 @@ Func breed_loop()
 		 if $hatched Then
 			end_poke_catched($hWnd)
 
-			goto_poke_screen($hWnd)
-			$pokemon_amount = get_pokemon_amount($hWnd)
-			$needed_pokemon_number = get_pokemon_by_name($hWnd, $needed_pokemon)
-			ConsoleWrite("hatched at " & $needed_pokemon_number & @CRLF )
-			if $needed_pokemon_number == -1 Then
-			   ConsoleWrite("ERROR Finding PKMN!" & @CRLF)
-			Else
-			   If good_stats($hWnd, $needed_pokemon_number, False) Then
-				  ConsoleWrite("a good pokemon has hatched!" & @CRLF)
-				  $good_pokemon = True
-			   Else
-				  ;ConsoleWrite("a not good pokemon has hatched!")
-				  $good_pokemon = False
-			   EndIf
+			goto_pokemon_center($hWnd)
 
-			   goto_pokemon_center($hWnd)
+			goto_computer($hWnd)
 
-			   goto_computer($hWnd)
+			$pokemon_amount = check_hatched_pokemon($hWnd, $pokemon_amount)
 
-			   if $good_pokemon Then
-				  deposit_pokemon($hWnd, $needed_pokemon_number)
-			   Else
-				  release_pokemon($hWnd, $needed_pokemon_number)
-			   EndIf
-			   $pokemon_amount = $pokemon_amount - 1
+			exit_computer($hWnd)
+			exit_pokemon_center($hWnd)
 
-			   exit_computer($hWnd)
-			   exit_pokemon_center($hWnd)
-			EndIf
+			$hatched = False
 		 EndIf
 		 if $pokemon_amount < 6 Then
 			$has_new_egg = goto_daycare($hWnd)
@@ -1217,6 +1360,7 @@ EndFunc
 ;WinWaitActive ($emuwintitle)
 
 Local $hWnd = WinGetHandle($emuwintitle)
+set_keys()
 ;ConsoleWrite(get_string(1, 14, $hWnd, 7))
 ;ConsoleWrite(get_string(7, 1, $hWnd))
 ;ConsoleWrite(get_number(7,1, $hWnd))
@@ -1297,14 +1441,21 @@ Local $hWnd = WinGetHandle($emuwintitle)
    ;$pokemon_amount = get_pokemon_amount($hWnd)
    ;ConsoleWrite($pokemon_amount)
 ;Send("{TAB down}")
+
+;   Opt("PixelCoordMode", 2	) ; c	lient area (n	o menu, caption bar)
+;   AutoItSetOption("SendKeyDelay", 0)
+;   AutoItSetOption("SendKeyDownDelay", 10)
+;   SendKeepActive($emuwintitle)
+;ConsoleWrite(is_sign_at(16, 2, $hWnd) & " and " & is_sign_at(12, 16, $hWnd) & @CRLF)
+
 ;goto_daycare($hWnd)
 
-
-
+;$pokemon_amount = check_hatched_pokemon($hWnd, 6)
+;ConsoleWrite($pokemon_amount )
 ;EXIT
 ;ConsoleWrite(get_name($hWnd) & @CRLF)
 ;notice when button pressed
-set_keys()
+
 While 1
 	Sleep(1)
 WEnd
