@@ -1,4 +1,9 @@
 $emuwintitle = ' VisualBoyAdvance-M (SVN1229)'
+$hidden_power = "psychic" ; "dark"
+$needed_pokemon = "DITTO" ; "LARVITAR"
+$updown = True
+
+
 #include <GDIPlus.au3>
 #include <Misc.au3>
 #include <ScreenCapture.au3>
@@ -479,57 +484,8 @@ Func get_selected_pokemon($hWnd)
 	   EndIf
 EndFunc
 
-Func is_max_stat($level, $hWnd)
-;	$max_hp = get_max_hp($level, 106)
-;	$max_attack = get_max_stat($level, 110)
-;	$max_defence = get_max_stat($level, 90)
-;	$max_speed = get_max_stat($level, 130)
-;	$max_special = get_max_stat($level, 154)
-	$max_hp = get_max_hp($level, 39)
-	$max_attack = get_max_stat($level, 52)
-	$max_defence = get_max_stat($level, 43)
-	$max_speed = get_max_stat($level, 65)
-	$max_special = get_max_stat($level, 50)
-
-	Return is_same_stat($level, $max_hp, $max_attack, $max_defence, $max_speed, $max_special, $hWnd)
-
-EndFunc
-
-Global $max_stat = 0
 Global $pokemon_amount = 0
 Global $hatched = 0
-
-Func get_sum_stat($hWnd)
-	Return get_hp($hWnd) + get_attack($hWnd) + get_defense($hWnd) + get_speed($hWnd) + get_special($hWnd)
-EndFunc
-
-Func save_state()
-	Send("+{F10}")
-EndFunc
-
-Func load_state($hWnd)
-	Send("{F10}")
-	$max_stat = get_sum_stat($hWnd)
-EndFunc
-
-Func save_stat($hWnd)
-
-	$current_stat = get_sum_stat($hWnd)
-
-	If $current_stat > $max_stat Then
-		$max_stat = $current_stat
-		save_state()
-	EndIf
-EndFunc
-
-
-Func view_stat()
-
-	Local $hWnd = WinGetHandle($emuwintitle)
-
-	msgbox(0, "stat", "name = " & get_name($hWnd) & "\nhp = " & get_hp($hWnd) & "\nattack = " & get_attack($hWnd) & "\ndefence = " & get_defense($hWnd) & "\nspeed = " & get_speed($hWnd) & "\nspecial = " & get_special($hWnd))
-EndFunc
-
 
 Func get_pokemon_amount($hWnd)
    For $index = 6 To 1 Step -1
@@ -564,26 +520,54 @@ Func is_door_at($x, $y, $hWnd)
    return is_object4_at($x, $y, "D", $hWnd)
 EndFunc
 
+#include <file.au3>
+#include <array.au3>
+Func _ArraySlice(Const ByRef $avArray, $iStart = 0, $iEnd = 0, $iStep = 1)
+   If Not IsArray($avArray) Then Return SetError(1, 0, 0)
+   If UBound($avArray, 0) <> 1 Then Return SetError(3, 0, "")
+   Local $iNew = 1, $iUBound = UBound($avArray) - 1
+   ; Bounds checking
+   If $iStep > $iUBound Then Return SetError(4, 0, "")
+   If $iEnd < 0 Or $iEnd > $iUBound Or $iEnd <= 0 And $iStep > 0 Then $iEnd = $iUBound
+   If $iStart < 0 Then $iStart = 0
+   If $iStart > $iEnd And $iStep >= 1 Then Return SetError(2, 0, "")
+   Local $aNewArray[$iNew]
+   For $i = $iStart To $iEnd Step $iStep
+   $aNewArray[$iNew-1] = $avArray[$i]
+   $iNew +=1
+   ReDim $aNewArray[$iNew]
+   Next
+   ReDim $aNewArray[$iNew-1]
+   Return $aNewArray
+EndFunc   ;==>_ArraySlice
+Dim $a_lines, $i, $a_temp
+$s_path = 1
+$rc = _FileReadToArray("C:\Users\win7vm\Desktop\poketas\pokemon_stat.csv", $a_lines)
+$stat_dictionary = ObjCreate("Scripting.Dictionary")
+If $rc <> 0 Then
 
-$hidden_power = "psychic"
+    For $i = 2 To $a_lines[0]
+        $a_temp = StringSplit($a_lines[$i], ",")
+		if IsArray($a_temp) and $a_temp[0] == 8 Then
+		   $stat_dictionary.Add(StringUpper($a_temp[2]), _ArraySlice($a_temp, 3, 8))
+		 ;ConsoleWrite(_ArrayToString(_ArraySlice($a_temp, 3, 8), " - ") & @CRLF)
+	  EndIf
+        ;If IsArray($a_temp) And $a_temp[0] > 0 Then
+         ;   If $a_temp[1] = $path Then
+          ;
+           ; EndIf
+        ;EndIf
+    Next
+ EndIf
 
 
-$needed_pokemon = "LARVITAR"
-$hp_base = 50
-$attack_base = 64
-$defense_base = 50
-$speed_base = 41
-$special_attack_base = 45
-$special_defense_base = 50
+$hp_base = Int($stat_dictionary.Item($needed_pokemon)[0])
+$attack_base = Int($stat_dictionary.Item($needed_pokemon)[1])
+$defense_base = Int($stat_dictionary.Item($needed_pokemon)[2])
+$speed_base = Int($stat_dictionary.Item($needed_pokemon)[5])
+$special_attack_base = Int($stat_dictionary.Item($needed_pokemon)[3])
+$special_defense_base = Int($stat_dictionary.Item($needed_pokemon)[4])
 
-
-$needed_pokemon = "DITTO"
-$hp_base = 48
-$attack_base = 48
-$defense_base = 48
-$speed_base = 48
-$special_attack_base = 48
-$special_defense_base = 48
 
 
 Func goto_poke_screen($hWnd)
@@ -688,6 +672,7 @@ Func good_stats($hWnd, $pokemon_number, $is_catching)
 		 Next
 	  Next
 	  if not $has_good_hp Then
+		 ;ConsoleWrite($hp &" hp is bad"&@CRLF)
 		 Send("{Z 2}")
 		 Return False
 	  Endif
@@ -965,6 +950,26 @@ Func goto_bag($hWnd)
 EndFunc
 
 Func see_wild($hWnd)
+if $updown Then
+   AutoItSetOption("SendKeyDownDelay", 0)
+   Send("{DOWN down}")
+		 AutoItSetOption("SendKeyDelay", 50)
+		 AutoItSetOption("SendKeyDownDelay", 50)
+	while not fight_started($hWnd) and $is_running
+		 Send("{UP}")
+
+
+		 ;if fight_started($hWnd) or not $is_running Then
+			;   ExitLoop
+			;endif
+
+	  WEnd
+   AutoItSetOption("SendKeyDelay", 0)
+	  Send("{DOWN up}")
+	  AutoItSetOption("SendKeyDownDelay", 10)
+	  Send("{X}")
+
+Else
 
    AutoItSetOption("SendKeyDownDelay", 0)
    Send("{RIGHT down}")
@@ -983,7 +988,7 @@ Func see_wild($hWnd)
 	  Send("{RIGHT up}")
 	  AutoItSetOption("SendKeyDownDelay", 10)
 	  Send("{X}")
-
+EndIf
    EndFunc
 
 Func should_fight($hWnd)
@@ -1825,7 +1830,8 @@ set_keys()
 ;$pokemon_amount = check_hatched_pokemon($hWnd, 6)
 ;ConsoleWrite($pokemon_amount )
 
-
+;ConsoleWrite("base " & $hp_base & " " & $attack_base & " " & $defense_base & " " & $speed_base & " " & $special_attack_base & " " & $special_defense_base & " " & @CRLF)
+;ConsoleWrite(get_stat_hp(10, 48, 1, 12,1, 0xf, 0))
 ;EXIT
 ;ConsoleWrite(get_name($hWnd) & @CRLF)
 ;notice when button pressed
