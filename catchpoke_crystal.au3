@@ -1,13 +1,13 @@
 $emuwintitle = ' VisualBoyAdvance-M (SVN1229)'
-$hidden_power = "psychic" ; "dark"
-$needed_pokemon = "DITTO" ; "LARVITAR"
+$hidden_power =  "dark" ; "dark" is used for MAX STAT. "psychic" (for example) will not give the max stat
+$needed_pokemon = "LARVITAR" ; "LARVITAR" "DITTO"
 $updown = True
 
 
 #include <GDIPlus.au3>
 #include <Misc.au3>
 #include <ScreenCapture.au3>
-
+#include <Math.au3>
 
 $oDictionary = ObjCreate("Scripting.Dictionary")
 $oDictionary.Add ("letters\A.bmp",    "A"  )
@@ -417,41 +417,80 @@ Func get_pokemon_status($pokemon_index, $hWnd)
 	Return $status
 EndFunc
 
-Func is_same_stat($level, $hp, $attack, $defence, $speed, $special, $hWnd)
-	Return get_level($hWnd) == $level and get_hp($hWnd) == $hp and get_attack($hWnd) == $attack and get_defence($hWnd) == $defence and get_speed($hWnd) == $speed and get_special($hWnd) == $special
+Func calc_hp_dv($dv_attack, $dv_defense, $dv_speed, $dv_special)
+   return BitShift(BitAND($dv_attack, 1), -3) + BitShift(BitAND($dv_defense, 1), -2) + BitShift(BitAND($dv_speed, 1), -1) + BitAND($dv_special, 1)
 EndFunc
 
 Func get_stat_hp($level, $base, $dv_attack, $dv_defense, $dv_speed, $dv_special, $ev)
-	$dv = BitShift(BitAND($dv_attack, 1), -3) + BitShift(BitAND($dv_defense, 1), -2) + BitShift(BitAND($dv_speed, 1), -1) + BitAND($dv_special, 1)
+	$dv = calc_hp_dv($dv_attack, $dv_defense, $dv_speed, $dv_special)
    Return get_stat_hp_value($level, $base, $dv, $ev)
 EndFunc
+
 Func get_stat_hp_value($level, $base, $dv, $ev)
-	If $ev < 1 Then
-		$ev = 1
-	EndIf
-	Return Floor($level * (($base + $dv + (Sqrt($ev - 1) + 1) / 8 + 50) / 50) + 10)
+
+	Return Floor((($base + $dv + Sqrt($ev) / 8 + 50) * $level / 50) + 10)
 EndFunc
 
-Func get_stat_value($level, $base, $dv, $ev)
-	If $ev < 1 Then
-		$ev = 1
-	EndIf
-	Return Floor($level * (($base + $dv + (Sqrt($ev - 1) + 1) / 8) / 50) + 5)
+Func is_valid_hp_stat($level, $base, $ev, $stat)
+   if $stat < 10  Then
+	  Return False
+   EndIf
+   if $level <= 50 Then
+	  return True
+   EndIf
+   if Ceiling((($stat - 10) * 50) / $level) <> Floor((($stat - 10) * 50 + 49)/ $level) Then
+	  return False
+   EndIf
+   return True
+   ;return ($stat >= 10 and $level <= 50 or (Ceiling((($stat - 10) * 50) / $level) <> Floor((($stat - 10) * 50 + 49)/ $level)))
+EndFunc
+
+Func get_hp_dv_value_min($level, $base, $ev, $stat)
+   if not is_valid_hp_stat($level, $base, $ev, $stat) Then
+	  return False
+   EndIf
+    Return _Max(_Min(Ceiling( ($stat - 10) * 50       / $level - $base - 50 - Sqrt($ev) / 8), 0xF), 0)
+EndFunc
+
+
+Func get_hp_dv_value_max($level, $base, $ev, $stat)
+
+   if not is_valid_hp_stat($level, $base, $ev, $stat) Then
+	  return False
+   EndIf
+    Return _Max(_Min(Floor  ((($stat - 10) * 50 + 49) / $level - $base - 50 - Sqrt($ev) / 8), 0xF), 0)
  EndFunc
 
- Func get_hp_dv_value($level, $base, $ev, $stat)
-	If $ev < 1 Then
-		$ev = 1
-	EndIf
-    Return ($stat - 10) * 50 / $level - $base - 50 - (Sqrt($ev - 1) + 1) / 8
+Func get_stat_value($level, $base, $dv, $ev)
+	Return Floor((($base + $dv + Sqrt($ev) / 8     ) * $level / 50) + 5)
+ EndFunc
 
+Func is_valid_stat($level, $base, $ev, $stat)
+   if $stat < 5 Then
+	  return False
+   EndIf
+   if $level <= 50 Then
+	  return True
+   EndIf
+   If Ceiling((($stat - 5) * 50) / $level) <>  Floor((($stat - 5) * 50 + 49)/ $level) Then
+	  return False
+   EndIf
+   return True
+   ;return $stat >= 5 and ($level <= 50 or Ceiling((($stat - 5) * 50) / $level) <>  Floor((($stat - 5) * 50 + 49)/ $level))
 EndFunc
 
-Func get_dv_value($level, $base, $ev, $stat)
-	If $ev < 1 Then
-		$ev = 1
-	EndIf
-	Return ($stat - 5) * 50 / $level - $base - (Sqrt($ev - 1) + 1) / 8 ; between ($stat - 4) * 50 / $level - $base - (Sqrt($ev - 1) + 1) / 8
+
+Func get_dv_value_min($level, $base, $ev, $stat)
+   if not is_valid_stat($level, $base, $ev, $stat) Then
+	  return False
+   EndIf
+    Return _Max(_Min(Ceiling( ($stat - 5 ) * 50       / $level - $base      - Sqrt($ev) / 8), 0xF), 0)
+EndFunc
+Func get_dv_value_max($level, $base, $ev, $stat)
+   if not is_valid_stat($level, $base, $ev, $stat) Then
+	  return False
+   EndIf
+    Return _Max(_Min(Floor  ((($stat - 5 ) * 50 + 49) / $level - $base      - Sqrt($ev) / 8), 0xF), 0)
 EndFunc
 
 Func get_max_hp($level, $base)
@@ -631,6 +670,51 @@ $hidden_power_defense_dictionary.Add ("poison",    14)
 $hidden_power_defense_dictionary.Add ("flying",    13)
 $hidden_power_defense_dictionary.Add ("fighting",    12)
 
+Func select_pokemon_to_daycare($hWnd, $pokemon_amount)
+   For $pokemon_number = 0 to $pokemon_amount - 1
+	  $name = get_pokemon_name($pokemon_number, $hWnd)
+	  if $name <> $needed_pokemon Then
+		 ContinueLoop
+	  EndIf
+	  $lvl = get_pokemon_level($pokemon_number, $hWnd)
+	  if $lvl <> 5 Then
+		 ContinueLoop
+	  EndIf
+
+
+	  if not good_stats($hWnd, $pokemon_number, False) Then
+		 ContinueLoop
+	  EndIf
+
+	  return $pokemon_number
+   Next
+   ConsoleWrite("ERRRRRR!!!!" & @CRLF)
+   Return -1
+EndFunc
+
+Func hover_pokemon($hWnd, $pokemon_number)
+   ;ConsoleWrite("needed poke=" & $pokemon_number & @CRLF)
+   $selected_pokemon = get_selected_pokemon($hWnd)
+   if $pokemon_number > $selected_pokemon Then
+	  if $pokemon_number - $selected_pokemon < $selected_pokemon + 7 - $pokemon_number Then
+		 $way = "{DOWN}"
+	  Else
+		 $way = "{UP}"
+	  EndIf
+   Else
+	  if $selected_pokemon - $pokemon_number < $pokemon_number + 7 - $selected_pokemon Then
+		 $way = "{UP}"
+	  Else
+		 $way = "{DOWN}"
+	  EndIf
+   EndIf
+   while $selected_pokemon <> $pokemon_number and $is_running
+	  ;ConsoleWrite("cur poke=" & $selected_pokemon & @CRLF)
+
+	  Send($way)
+	  $selected_pokemon = get_selected_pokemon($hWnd)
+   Wend
+EndFunc
 
 Func good_stats($hWnd, $pokemon_number, $is_catching)
 
@@ -673,7 +757,7 @@ Func good_stats($hWnd, $pokemon_number, $is_catching)
 	  Next
 	  if not $has_good_hp Then
 		 ;ConsoleWrite($hp &" hp is bad"&@CRLF)
-		 Send("{Z 2}")
+		 ;Send("{Z 2}")
 		 Return False
 	  Endif
 	  #CS
@@ -706,14 +790,9 @@ Func good_stats($hWnd, $pokemon_number, $is_catching)
 	  #CE
    Else
 	  ; i think this test can replace the 2 next tests after it. i dont really sure.
-	  $needed_hp = get_stat_hp($lvl, $hp_base,
-		 $attack_dv,
-		 $defense_dv,
-		 $speed_dv,
-		 $special_dv,
-		 0)
+	  $needed_hp = get_stat_hp($lvl, $hp_base, $attack_dv, $defense_dv, $speed_dv, $special_dv, 0)
 	  if $hp <> $needed_hp Then
-		 Send("{Z 2}")
+		 ;Send("{Z 2}")
 		 Return False
 	  Endif
 
@@ -738,11 +817,7 @@ Func good_stats($hWnd, $pokemon_number, $is_catching)
 
    ; if get_pokemon_name($pokemon_amount, $hWnd)
 
-   while get_selected_pokemon($hWnd) <> $pokemon_number and $is_running
-	  ;ConsoleWrite("cur poke=" & get_selected_pokemon($hWnd))
-	  Send("{UP}")
-
-   Wend
+   hover_pokemon($hWnd, $pokemon_number)
 
    Send("{X 2}{RIGHT 2}")
 
@@ -754,7 +829,7 @@ Func good_stats($hWnd, $pokemon_number, $is_catching)
 	$special_defense = get_special_defense($hWnd)
    ;AutoItSetOption("SendKeyDelay", 0)
    ;AutoItSetOption("SendKeyDownDelay", 10)
-   Send("{Z 3}")
+   Send("{Z}")
 
 
    ;$max_hp = get_max_hp($lvl, 50)
@@ -872,11 +947,13 @@ Func set_keys()
 
 	HotKeySet("{F8}", "breed_loop")
 	HotKeySet("{F9}", "catch_loop")
+	HotKeySet("{F10}", "daycare_loop")
 EndFunc
 
 Func unset_keys()
 	HotKeySet("{F8}", "end_catch")
 	HotKeySet("{F9}", "end_catch")
+	HotKeySet("{F10}", "end_catch")
 EndFunc
 
 Func end_catch()
@@ -1074,10 +1151,12 @@ Func catch_loop()
 
 		 $pokemon_amount = get_pokemon_amount($hWnd)
 		 If good_stats($hWnd, $pokemon_amount - 1, True) Then
+			Send("{Z 2}")
 			ConsoleWrite("Caught good pkmn!" & @CRLF)
 			Send("+{F1}")
 
 		 Else
+			Send("{Z 2}")
 			;WriteConsole("Caught bad pkmn!" & @CRLF)
 		 EndIf
 		 if not  $is_running Then
@@ -1418,6 +1497,371 @@ Func exit_pokemon_center($hWnd)
    start_walking()
 EndFunc
 
+Func goto_oldman($hWnd)
+
+   Send("{LEFT down}")
+   while not (get_one_digit(14, 12, $hWnd) & get_one_digit(15, 12, $hWnd) == "[OLL][OLR]") and $is_running
+	  If poke_born($hWnd) Then
+		 Send("{LEFT up}")
+		 handle_hatch($hWnd)
+		 Send("{LEFT down}")
+	  EndIf
+   Wend
+   Send("{LEFT up}")
+   handle_hatch($hWnd)
+
+   Send("{DOWN down}")
+   while not (get_one_digit(14, 10, $hWnd) & get_one_digit(15, 10, $hWnd) == "[OLL][OLR]") and $is_running
+	  If poke_born($hWnd) Then
+		 Send("{DOWN up}")
+		 handle_hatch($hWnd)
+		 Send("{DOWN down}")
+	  EndIf
+   Wend
+   Send("{DOWN up}")
+   handle_hatch($hWnd)
+EndFunc
+
+Func level_some($hWnd)
+
+   Send("{UP down}")
+   while not (get_one_digit(14, 12, $hWnd) & get_one_digit(15, 12, $hWnd) == "[OLL][OLR]") and $is_running
+	  If poke_born($hWnd) Then
+		 Send("{UP up}")
+		 handle_hatch($hWnd)
+		 Send("{UP down}")
+	  EndIf
+   Wend
+   Send("{UP up}")
+   handle_hatch($hWnd)
+
+   AutoItSetOption("SendKeyDownDelay", 0)
+   Send("{RIGHT down}")
+   AutoItSetOption("SendKeyDelay", 20)
+   AutoItSetOption("SendKeyDownDelay", 20)
+   $i = 0
+   ;while not $hatching and $hatched == 0 and $is_running and ($pokemon_amount == 6 or $i < 20)
+   while not poke_born($hWnd) and $is_running and $i < 10
+
+	  Send("{LEFT}")
+	  $i = $i + 1
+   WEnd
+   AutoItSetOption("SendKeyDelay", 0)
+   Send("{RIGHT up}")
+   handle_hatch($hWnd)
+EndFunc
+
+Func is_single_hp_dv($lvl, $base, $dv)
+   $stat = get_stat_hp_value($lvl, $base, $dv, 0)
+
+   return get_hp_dv_value_min($lvl, $base, 0, $stat) == get_hp_dv_value_max($lvl, $base, 0, $stat)
+
+EndFunc
+
+Func is_single_dv($lvl, $base, $dv)
+   $stat = get_stat_value($lvl, $base, $dv, 0)
+
+   return get_dv_value_min($lvl, $base, 0, $stat) == get_dv_value_max($lvl, $base, 0, $stat)
+
+EndFunc
+
+Func get_tested_level($current_level, $base, $dv)
+   for $lvl = $current_level to 100
+	  If is_single_dv($lvl, $base, $dv) Then
+		return $lvl
+	 EndIf
+  Next
+  return -1
+EndFunc
+
+Func get_hp_tested_level($current_level, $base, $dv)
+   for $lvl = $current_level to 100
+	  If is_single_hp_dv($lvl, $base, $dv) Then
+		return $lvl
+	 EndIf
+  Next
+  return -1
+EndFunc
+
+Func get_special_tested_level($current_level, $special_attack_base, $special_defense_base, $dv)
+   for $lvl = $current_level to 100
+	  If is_single_dv($lvl, $special_attack_base, $dv) or is_single_dv($lvl, $special_defense_base, $dv) Then
+		 return $lvl
+	 EndIf
+
+  Next
+  return -1
+EndFunc
+
+Func validate_min_max_calcs()
+   $attack_dv = $hidden_power_attack_dictionary.Item($hidden_power)
+   $defense_dv = $hidden_power_defense_dictionary.Item($hidden_power)
+   $speed_dv = 0xF
+   $special_dv = 0xF
+
+   $hp_dv = calc_hp_dv($attack_dv, $defense_dv, $speed_dv, $special_dv)
+
+   $lvl = 1
+   $levels = ObjCreate("System.Collections.ArrayList")
+   While $lvl < 100
+	  $lvl = get_hp_tested_level($lvl + 1, $hp_base, $hp_dv)
+	  if $lvl = -1 Then
+		 ExitLoop
+	  EndIf
+	  $levels.Add($lvl)
+   WEnd
+   $stats = ObjCreate("System.Collections.ArrayList")
+   for $i = 0 to $levels.Count - 1
+	  $stat = get_stat_hp_value($levels.Item($i), $hp_base, $hp_dv, 0)
+	  $stats.Add(get_hp_dv_value_min($levels.Item($i), $hp_base, 0, $stat))
+	  $stats.Add(get_hp_dv_value_max($levels.Item($i), $hp_base, 0, $stat))
+
+   next
+   $arr = $stats.ToArray
+   $lvls = $levels.ToArray
+   ConsoleWrite("HP levels " & _ArrayToString($lvls, "|") & @CRLF)
+   If _ArrayUnique ($arr)[0] <> 1 Then
+	  ConsoleWrite("HP ERROR!!" & @CRLF)
+   EndIf
+
+   $lvl = 1
+   $levels = ObjCreate("System.Collections.ArrayList")
+   While $lvl < 100
+	  $lvl = get_tested_level($lvl + 1, $attack_base, $attack_dv)
+	  if $lvl = -1 Then
+		 ExitLoop
+	  EndIf
+	  $levels.Add($lvl)
+   WEnd
+   $stats = ObjCreate("System.Collections.ArrayList")
+   for $i = 0 to $levels.Count - 1
+
+	  $stat = get_stat_value($levels.Item($i), $attack_base, $attack_dv, 0)
+	  $stats.Add(get_dv_value_min($levels.Item($i), $attack_base, 0, $stat))
+	  $stats.Add(get_dv_value_max($levels.Item($i), $attack_base, 0, $stat))
+
+   next
+   $arr = $stats.ToArray
+   $lvls = $levels.ToArray
+   ConsoleWrite("ATTACK levels " & _ArrayToString($lvls, "|") & @CRLF)
+   If _ArrayUnique ($arr)[0] <> 1 Then
+	  ConsoleWrite("ATTACK ERROR!!" & @CRLF)
+   EndIf
+
+
+
+   $lvl = 1
+   $levels = ObjCreate("System.Collections.ArrayList")
+   While $lvl < 100
+	  $lvl = get_tested_level($lvl + 1, $defense_base, $defense_dv)
+	  if $lvl = -1 Then
+		 ExitLoop
+	  EndIf
+	  $levels.Add($lvl)
+   WEnd
+   $stats = ObjCreate("System.Collections.ArrayList")
+   for $i = 0 to $levels.Count - 1
+	  $stat = get_stat_value($levels.Item($i), $defense_base, $defense_dv, 0)
+	  $stats.Add(get_dv_value_min($levels.Item($i), $defense_base, 0, $stat))
+	  $stats.Add(get_dv_value_max($levels.Item($i), $defense_base, 0, $stat))
+
+   next
+   $arr = $stats.ToArray
+   $lvls = $levels.ToArray
+   ConsoleWrite("DEFENSE levels " & _ArrayToString($lvls, "|") & @CRLF)
+   If _ArrayUnique ($arr)[0] <> 1 Then
+	  ConsoleWrite("DEFENSE ERROR!!" & @CRLF)
+   EndIf
+
+
+   $lvl = 1
+   $levels = ObjCreate("System.Collections.ArrayList")
+   While $lvl < 100
+	  $lvl = get_tested_level($lvl + 1, $speed_base, $speed_dv)
+	  if $lvl = -1 Then
+		 ExitLoop
+	  EndIf
+	  $levels.Add($lvl)
+   WEnd
+   $stats = ObjCreate("System.Collections.ArrayList")
+   for $i = 0 to $levels.Count - 1
+	  $stat = get_stat_value($levels.Item($i), $speed_base, $speed_dv, 0)
+	  $stats.Add(get_dv_value_min($levels.Item($i), $speed_base, 0, $stat))
+	  $stats.Add(get_dv_value_max($levels.Item($i), $speed_base, 0, $stat))
+
+   next
+   $arr = $stats.ToArray
+   $lvls = $levels.ToArray
+   ConsoleWrite("SPEED levels " & _ArrayToString($lvls, "|") & @CRLF)
+   If _ArrayUnique ($arr)[0] <> 1 Then
+	  ConsoleWrite("SPEED ERROR!!" & @CRLF)
+   EndIf
+
+   $lvl = 1
+   $levels = ObjCreate("System.Collections.ArrayList")
+   While $lvl < 100
+	  $lvl = get_tested_level($lvl + 1, $special_attack_base, $special_dv)
+	  if $lvl = -1 Then
+		 ExitLoop
+	  EndIf
+	  $levels.Add($lvl)
+   WEnd
+   $stats = ObjCreate("System.Collections.ArrayList")
+   for $i = 0 to $levels.Count - 1
+	  $stat = get_stat_value($levels.Item($i), $special_attack_base, $special_dv, 0)
+	  $stats.Add(get_dv_value_min($levels.Item($i), $special_attack_base, 0, $stat))
+	  $stats.Add(get_dv_value_max($levels.Item($i), $special_attack_base, 0, $stat))
+
+   next
+   $arr = $stats.ToArray
+   $lvls = $levels.ToArray
+   ConsoleWrite("SPEED ATTACK levels " & _ArrayToString($lvls, "|") & @CRLF)
+   If _ArrayUnique ($arr)[0] <> 1 Then
+	  ConsoleWrite("SPECIAL ATTACK ERROR!!" & @CRLF)
+   EndIf
+
+   $lvl = 1
+   $levels = ObjCreate("System.Collections.ArrayList")
+   While $lvl < 100
+	  $lvl = get_tested_level($lvl + 1, $special_defense_base, $special_dv)
+	  if $lvl = -1 Then
+		 ExitLoop
+	  EndIf
+	  $levels.Add($lvl)
+   WEnd
+   $stats = ObjCreate("System.Collections.ArrayList")
+   for $i = 0 to $levels.Count - 1
+	  $stat = get_stat_value($levels.Item($i), $special_defense_base, $special_dv, 0)
+	  $stats.Add(get_dv_value_min($levels.Item($i), $special_defense_base, 0, $stat))
+	  $stats.Add(get_dv_value_max($levels.Item($i), $special_defense_base, 0, $stat))
+
+   next
+   $arr = $stats.ToArray
+   $lvls = $levels.ToArray
+   ConsoleWrite("SPECIAL DEFENSE levels " & _ArrayToString($lvls, "|") & @CRLF)
+   If _ArrayUnique ($arr)[0] <> 1 Then
+	  ConsoleWrite("SPECIAL DEFENSE ERROR!!" & @CRLF)
+   EndIf
+
+
+
+EndFunc
+
+Func get_tested_levels($current_level)
+   $attack_dv = $hidden_power_attack_dictionary.Item($hidden_power)
+   $defense_dv = $hidden_power_defense_dictionary.Item($hidden_power)
+   $speed_dv = 0xF
+   $special_dv = 0xF
+
+   $hp_dv = calc_hp_dv($attack_dv, $defense_dv, $speed_dv, $special_dv)
+
+   $hp_level = get_hp_tested_level($current_level, $hp_base, $hp_dv)
+   $attack_level = get_tested_level($current_level, $attack_base, $attack_dv)
+   $defense_level = get_tested_level($current_level, $defense_base, $defense_dv)
+   $speed_level = get_tested_level($current_level, $speed_base, $speed_dv)
+   $special_level = get_special_tested_level($current_level, $special_attack_base, $special_defense_base, $special_dv)
+
+   ConsoleWrite("hp at lvl " & $hp_level & @CRLF)
+   ConsoleWrite("attack at lvl " & $attack_level & @CRLF)
+   ConsoleWrite("defense at lvl " & $defense_level & @CRLF)
+   ConsoleWrite("speed at lvl " & $speed_level & @CRLF)
+   ConsoleWrite("special at lvl " & $special_level & @CRLF)
+
+   local $levels[5] = [$hp_level, $attack_level, $defense_level, $speed_level, $special_level]
+   _ArraySort($levels)
+   $levels = _ArrayUnique ($levels)
+
+   if _ArraySearch($levels, -1) <> -1 Then
+	  ConsoleWrite("invalid needed level" & @CRLF)
+   EndIf
+
+   Return _ArraySlice($levels, 1, $levels[0])
+EndFunc
+
+Func put_pokemon_in_daycare($hWnd, $current_level, $pokemon_amount, $pokemon_to_level)
+   $levels = get_tested_levels($current_level)
+
+
+   $bad_pokemon = False
+   $level_index = 0
+   if $levels[$level_index] == $current_level Then
+	  $level_index = int($level_index) + 1 ; in case the first needed level is 5 - except only later levels
+   EndIf
+   ;ConsoleWrite($i & " " & UBound($levels))
+   goto_oldman($hWnd)
+   While $is_running and not $bad_pokemon and $level_index < int(UBound($levels))
+	  ConsoleWrite($level_index & " " & UBound($levels) & @CRLF)
+
+
+	  Send("{X 4}")
+
+	  hover_pokemon($hWnd, $pokemon_to_level)
+	  Send("{X 3}")
+
+	  $leveled_up = False
+	  $needed_level = $levels[$level_index]
+	  ConsoleWrite("leveling to " & $needed_level & @CRLF)
+	  do
+
+		 level_some($hWnd)
+
+		 goto_oldman($hWnd)
+
+		 Send("{X}")
+		 if poke_born($hWnd) Then  ; just check if first word is "Huh?" no pokemon was actually born
+			Send("{Z 6}")
+			ContinueLoop
+		 EndIf
+
+		 Send("{X 3}")
+		 $msg = get_message_string($hWnd)
+		 ;ConsoleWrite("lvl msg " & $msg & @CRLF)
+		 $leveled_by = int(StringRegExp($msg, "By level, it grown by (\d+)." , $STR_REGEXPARRAYFULLMATCH)[1])
+
+		 If $current_level + $leveled_by > $needed_level Then
+			ConsoleWrite("error leveling up - too high level in daycare" & @CRLF)
+			$bad_pokemon = True
+			end_catch()
+			ExitLoop
+		 ElseIf $current_level + $leveled_by <> $needed_level Then
+			Send("{Z 5}")
+			ContinueLoop
+		 EndIf
+		 $current_level = $current_level + $leveled_by
+
+
+		 $leveled_up = True
+		 Send("{X 6}")
+		 $pokemon_to_level = $pokemon_amount - 1
+
+	  until $leveled_up or not $is_running
+	  if $is_running then
+		 goto_poke_screen($hWnd)
+		 $bad_pokemon = not good_stats($hWnd, $pokemon_to_level, False)
+		 if not $bad_pokemon Then
+			ConsoleWrite("good at lvl " & $current_level & @CRLF)
+		 EndIf
+		 Send("{Z 2}")
+	  EndIf
+	  $level_index = int($level_index) + 1
+
+   Wend
+
+   Send("{UP down}")
+   while not (get_one_digit(14, 12, $hWnd) & get_one_digit(15, 12, $hWnd) == "[OLL][OLR]") and $is_running
+	  If poke_born($hWnd) Then
+		 Send("{UP up}")
+		 handle_hatch($hWnd)
+		 Send("{UP down}")
+	  EndIf
+   Wend
+   Send("{UP up}")
+   handle_hatch($hWnd)
+
+   ConsoleWrite(@CRLF & $level_index & " " & UBound($levels) & @CRLF)
+   return not $bad_pokemon
+
+EndFunc
 
 Func goto_daycare($hWnd)
    AutoItSetOption("SendKeyDelay", 10)
@@ -1730,6 +2174,63 @@ Func breed_loop()
 	set_keys()
 EndFunc
 
+
+
+Func daycare_loop()
+   	$is_running = True
+
+
+   Opt("PixelCoordMode", 	2) ; client area (no menu, caption bar)
+   AutoItSetOption("SendKeyDelay", 0)
+   AutoItSetOption("SendKeyDownDelay", 10)
+   SendKeepActive($emuwintitle)
+
+	unset_keys()
+
+   ; Send("+{F1}")
+	Local $hWnd = WinGetHandle($emuwintitle)
+
+	;load_state($hWnd)
+
+
+	Send("{TAB down}")
+   ;Send("{Z 2}")
+	Do
+		 ;ConsoleWrite("poke amount " & $pokemon_amount & @CRLF)
+		  goto_poke_screen($hWnd)
+		  $pokemon_amount = get_pokemon_amount($hWnd)
+		 $pokemon_to_level = select_pokemon_to_daycare($hWnd, $pokemon_amount)
+		 ConsoleWrite("will be raising " & $pokemon_to_level & @CRLF)
+		 Send("{Z 2}")
+		 if $pokemon_to_level >= 0 Then
+			$good_pokemon = put_pokemon_in_daycare($hWnd, 5, $pokemon_amount, $pokemon_to_level)
+			if $good_pokemon Then
+			   ConsoleWrite("found a good pokemon!" & @CRLF)
+			EndIf
+
+		 Else
+			end_catch()
+
+#CS
+			   goto_pokemon_center($hWnd)
+
+			   goto_computer($hWnd)
+
+			   check_hatched_pokemon($hWnd)
+
+			   exit_computer($hWnd)
+			   exit_pokemon_center($hWnd)
+#CE
+		 EndIf
+
+
+
+	Until Not $is_running ;  is_max_stat(10, $hWnd) Or
+	end_catch()
+	set_keys()
+EndFunc
+
+
 ;WinWaitActive ($emuwintitle)
 
 Local $hWnd = WinGetHandle($emuwintitle)
@@ -1832,6 +2333,27 @@ set_keys()
 
 ;ConsoleWrite("base " & $hp_base & " " & $attack_base & " " & $defense_base & " " & $speed_base & " " & $special_attack_base & " " & $special_defense_base & " " & @CRLF)
 ;ConsoleWrite(get_stat_hp(10, 48, 1, 12,1, 0xf, 0))
+
+;$lvl = 17
+;$stat = 24
+;ConsoleWrite("hp at lvl" & $lvl & " for stat"  &  $stat & " min " & get_dv_value_min($lvl, $speed_base, 0, $stat) & " max " & get_dv_value_max($lvl, $speed_base, 0, $stat) & @CRLF)
+
+;for $lvl = 2 to 100
+   ;for $stat = get_stat_hp_value($lvl, $hp_base, 0, 0) to get_stat_hp_value($lvl, $hp_base, 0xF, 0)
+
+	;  if is_valid_hp_stat($lvl, $hp_base, 0, $stat) and not (get_stat_hp_value($lvl, $hp_base, get_hp_dv_value_min($lvl, $hp_base, 0, $stat), 0) == get_stat_hp_value($lvl, $hp_base, get_hp_dv_value_max($lvl, $hp_base, 0, $stat), 0)) then
+	;	  $aaa = Ceiling((($stat - 10) * 50) / $lvl)  & " blah " &   Floor((($stat - 10) * 50 + 49)/ $lvl)
+	;	 ConsoleWrite("hp at lvl" & $lvl & " for stat"  &  $stat & " min " & get_hp_dv_value_min($lvl, $hp_base, 0, $stat) & " max " & get_hp_dv_value_max($lvl, $hp_base, 0, $stat) &  " argggg " & $aaa & @CRLF)
+	 ; Endif
+   ;next
+;next
+;ConsoleWrite("levels are " &  _ArrayToString(get_tested_levels(5), "|") & @CRLF)
+;ConsoleWrite("validating..." & @CRLF)
+;validate_min_max_calcs()
+;ConsoleWrite("done!" & @CRLF)
+;$msg = "By level, it grown by 3."
+;$leveled_by = int(StringRegExp($msg, "By level, it grown by (\d+)." , $STR_REGEXPARRAYFULLMATCH)[1])
+;ConsoleWrite("leveled by " & $leveled_by & @CRLF)
 ;EXIT
 ;ConsoleWrite(get_name($hWnd) & @CRLF)
 ;notice when button pressed
