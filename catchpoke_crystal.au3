@@ -1,7 +1,15 @@
 $emuwintitle = ' VisualBoyAdvance-M (SVN1229)'
-$hidden_power =  "dark" ; "dark" is used for MAX STAT. "psychic" (for example) will not give the max stat
-$needed_pokemon = "LARVITAR" ; "LARVITAR" "DITTO"
+;$hidden_power =  "dark"
+;$needed_pokemon = "LARVITAR"
+;$updown = True
+;$raising_level = 5 ; for eggs
+;$raise_for_breeding = False
+
+$hidden_power =  "psychic"
+$needed_pokemon = "DITTO"
 $updown = True
+$raising_level = 10 ; for eggs
+$raise_for_breeding = True
 
 
 #include <GDIPlus.au3>
@@ -677,18 +685,18 @@ Func select_pokemon_to_daycare($hWnd, $pokemon_amount)
 		 ContinueLoop
 	  EndIf
 	  $lvl = get_pokemon_level($pokemon_number, $hWnd)
-	  if $lvl <> 5 Then
+	  if $lvl <> $raising_level Then
 		 ContinueLoop
 	  EndIf
 
 
-	  if not good_stats($hWnd, $pokemon_number, False) Then
+	  if not good_stats($hWnd, $pokemon_number, $raise_for_breeding) Then
 		 ContinueLoop
 	  EndIf
 
 	  return $pokemon_number
    Next
-   ConsoleWrite("ERRRRRR!!!!" & @CRLF)
+   ; ConsoleWrite("ERRRRRR!!!!" & @CRLF)
    Return -1
 EndFunc
 
@@ -847,7 +855,7 @@ Func good_stats($hWnd, $pokemon_number, $is_catching)
    If $is_catching Then
 	  $needed_special_attack2 = get_stat_value($lvl, $special_attack_base, BitXOR($special_dv, 8), 0)
 	  $needed_special_defense2 = get_stat_value($lvl, $special_defense_base, BitXOR($special_dv, 8), 0)
-	  if $pokemon_amount == 6 then
+	  if $pokemon_amount == 6 and not $raise_for_breeding then
 		 end_catch()
 	  EndIf
 
@@ -1594,6 +1602,8 @@ Func get_special_tested_level($current_level, $special_attack_base, $special_def
 EndFunc
 
 Func validate_min_max_calcs()
+   $err = False
+
    $attack_dv = $hidden_power_attack_dictionary.Item($hidden_power)
    $defense_dv = $hidden_power_defense_dictionary.Item($hidden_power)
    $speed_dv = 0xF
@@ -1622,6 +1632,7 @@ Func validate_min_max_calcs()
    ConsoleWrite("HP levels " & _ArrayToString($lvls, "|") & @CRLF)
    If _ArrayUnique ($arr)[0] <> 1 Then
 	  ConsoleWrite("HP ERROR!!" & @CRLF)
+	  $err = True
    EndIf
 
    $lvl = 1
@@ -1646,6 +1657,7 @@ Func validate_min_max_calcs()
    ConsoleWrite("ATTACK levels " & _ArrayToString($lvls, "|") & @CRLF)
    If _ArrayUnique ($arr)[0] <> 1 Then
 	  ConsoleWrite("ATTACK ERROR!!" & @CRLF)
+	  $err = True
    EndIf
 
 
@@ -1671,6 +1683,7 @@ Func validate_min_max_calcs()
    ConsoleWrite("DEFENSE levels " & _ArrayToString($lvls, "|") & @CRLF)
    If _ArrayUnique ($arr)[0] <> 1 Then
 	  ConsoleWrite("DEFENSE ERROR!!" & @CRLF)
+	  $err = True
    EndIf
 
 
@@ -1695,6 +1708,7 @@ Func validate_min_max_calcs()
    ConsoleWrite("SPEED levels " & _ArrayToString($lvls, "|") & @CRLF)
    If _ArrayUnique ($arr)[0] <> 1 Then
 	  ConsoleWrite("SPEED ERROR!!" & @CRLF)
+	  $err = True
    EndIf
 
    $lvl = 1
@@ -1718,6 +1732,7 @@ Func validate_min_max_calcs()
    ConsoleWrite("SPEED ATTACK levels " & _ArrayToString($lvls, "|") & @CRLF)
    If _ArrayUnique ($arr)[0] <> 1 Then
 	  ConsoleWrite("SPECIAL ATTACK ERROR!!" & @CRLF)
+	  $err = True
    EndIf
 
    $lvl = 1
@@ -1741,8 +1756,9 @@ Func validate_min_max_calcs()
    ConsoleWrite("SPECIAL DEFENSE levels " & _ArrayToString($lvls, "|") & @CRLF)
    If _ArrayUnique ($arr)[0] <> 1 Then
 	  ConsoleWrite("SPECIAL DEFENSE ERROR!!" & @CRLF)
+	  $err = True
    EndIf
-
+   return not $err
 
 
 EndFunc
@@ -1755,19 +1771,30 @@ Func get_tested_levels($current_level)
 
    $hp_dv = calc_hp_dv($attack_dv, $defense_dv, $speed_dv, $special_dv)
 
-   $hp_level = get_hp_tested_level($current_level, $hp_base, $hp_dv)
-   $attack_level = get_tested_level($current_level, $attack_base, $attack_dv)
-   $defense_level = get_tested_level($current_level, $defense_base, $defense_dv)
-   $speed_level = get_tested_level($current_level, $speed_base, $speed_dv)
-   $special_level = get_special_tested_level($current_level, $special_attack_base, $special_defense_base, $special_dv)
+   if $raise_for_breeding Then
+	  $defense_level = get_tested_level($current_level, $defense_base, $defense_dv)
+	  $special_level = get_special_tested_level($current_level, $special_attack_base, $special_defense_base, $special_dv)
 
-   ConsoleWrite("hp at lvl " & $hp_level & @CRLF)
-   ConsoleWrite("attack at lvl " & $attack_level & @CRLF)
-   ConsoleWrite("defense at lvl " & $defense_level & @CRLF)
-   ConsoleWrite("speed at lvl " & $speed_level & @CRLF)
-   ConsoleWrite("special at lvl " & $special_level & @CRLF)
+	  ConsoleWrite("-defense at lvl " & $defense_level & @CRLF)
+	  ConsoleWrite("-special at lvl " & $special_level & @CRLF)
 
-   local $levels[5] = [$hp_level, $attack_level, $defense_level, $speed_level, $special_level]
+	  local $levels[2] = [$defense_level, $special_level]
+
+   Else
+	  $hp_level = get_hp_tested_level($current_level, $hp_base, $hp_dv)
+	  $attack_level = get_tested_level($current_level, $attack_base, $attack_dv)
+	  $defense_level = get_tested_level($current_level, $defense_base, $defense_dv)
+	  $speed_level = get_tested_level($current_level, $speed_base, $speed_dv)
+	  $special_level = get_special_tested_level($current_level, $special_attack_base, $special_defense_base, $special_dv)
+
+	  ConsoleWrite("-hp at lvl " & $hp_level & @CRLF)
+	  ConsoleWrite("-attack at lvl " & $attack_level & @CRLF)
+	  ConsoleWrite("-defense at lvl " & $defense_level & @CRLF)
+	  ConsoleWrite("-speed at lvl " & $speed_level & @CRLF)
+	  ConsoleWrite("-special at lvl " & $special_level & @CRLF)
+
+	  local $levels[5] = [$hp_level, $attack_level, $defense_level, $speed_level, $special_level]
+   EndIf
    _ArraySort($levels)
    $levels = _ArrayUnique ($levels)
 
@@ -1783,14 +1810,14 @@ Func put_pokemon_in_daycare($hWnd, $current_level, $pokemon_amount, $pokemon_to_
 
 
    $bad_pokemon = False
-   $level_index = 0
+   $level_index = int(0)
    if $levels[$level_index] == $current_level Then
-	  $level_index = int($level_index) + 1 ; in case the first needed level is 5 - except only later levels
+	  $level_index = int(int($level_index) + 1) ; in case the first needed level is 5 - except only later levels
    EndIf
-   ;ConsoleWrite($i & " " & UBound($levels))
+   ;ConsoleWrite($level_index & " " & UBound($levels) & " " & $current_level & @CRLF)
    goto_oldman($hWnd)
    While $is_running and not $bad_pokemon and $level_index < int(UBound($levels))
-	  ConsoleWrite($level_index & " " & UBound($levels) & @CRLF)
+	  ;ConsoleWrite($level_index & " " & UBound($levels) & @CRLF)
 
 
 	  Send("{X 4}")
@@ -1800,7 +1827,7 @@ Func put_pokemon_in_daycare($hWnd, $current_level, $pokemon_amount, $pokemon_to_
 
 	  $leveled_up = False
 	  $needed_level = $levels[$level_index]
-	  ConsoleWrite("leveling to " & $needed_level & @CRLF)
+	  ConsoleWrite("-leveling to " & $needed_level & @CRLF)
 	  do
 
 		 level_some($hWnd)
@@ -1837,9 +1864,9 @@ Func put_pokemon_in_daycare($hWnd, $current_level, $pokemon_amount, $pokemon_to_
 	  until $leveled_up or not $is_running
 	  if $is_running then
 		 goto_poke_screen($hWnd)
-		 $bad_pokemon = not good_stats($hWnd, $pokemon_to_level, False)
+		 $bad_pokemon = not good_stats($hWnd, $pokemon_to_level, $raise_for_breeding)
 		 if not $bad_pokemon Then
-			ConsoleWrite("good at lvl " & $current_level & @CRLF)
+			ConsoleWrite("-good at lvl " & $current_level & @CRLF)
 		 EndIf
 		 Send("{Z 2}")
 	  EndIf
@@ -1858,7 +1885,6 @@ Func put_pokemon_in_daycare($hWnd, $current_level, $pokemon_amount, $pokemon_to_
    Send("{UP up}")
    handle_hatch($hWnd)
 
-   ConsoleWrite(@CRLF & $level_index & " " & UBound($levels) & @CRLF)
    return not $bad_pokemon
 
 EndFunc
@@ -2200,15 +2226,19 @@ Func daycare_loop()
 		  goto_poke_screen($hWnd)
 		  $pokemon_amount = get_pokemon_amount($hWnd)
 		 $pokemon_to_level = select_pokemon_to_daycare($hWnd, $pokemon_amount)
-		 ConsoleWrite("will be raising " & $pokemon_to_level & @CRLF)
+
 		 Send("{Z 2}")
 		 if $pokemon_to_level >= 0 Then
-			$good_pokemon = put_pokemon_in_daycare($hWnd, 5, $pokemon_amount, $pokemon_to_level)
+			ConsoleWrite("will be raising " & $pokemon_to_level & @CRLF)
+			$good_pokemon = put_pokemon_in_daycare($hWnd, $raising_level, $pokemon_amount, $pokemon_to_level)
 			if $good_pokemon Then
 			   ConsoleWrite("found a good pokemon!" & @CRLF)
+			Else
+			   ConsoleWrite("found a bad pokemon!" & @CRLF)
 			EndIf
 
 		 Else
+			ConsoleWrite("no more to raise" & @CRLF)
 			end_catch()
 
 #CS
@@ -2234,6 +2264,11 @@ EndFunc
 ;WinWaitActive ($emuwintitle)
 
 Local $hWnd = WinGetHandle($emuwintitle)
+ConsoleWrite("validating..." & @CRLF)
+if not validate_min_max_calcs() then
+   Exit
+endif
+ConsoleWrite("done!" & @CRLF)
 set_keys()
 ;ConsoleWrite(get_string(1, 14, $hWnd, 7))
 ;ConsoleWrite(get_string(7, 1, $hWnd))
