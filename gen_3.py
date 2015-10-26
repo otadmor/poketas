@@ -220,7 +220,7 @@ def test_level_hp_stat(current_level, stat, level, base, iv, ev):
             return False
     return True
     
-def test_level_stat(current_level, stat, level, base, iv, ev, nature):
+def test_level_stat(current_level, stat, level, base, iv, ev, nature, min_iv, max_iv):
     min_iv = max(get_iv_value_min(current_level, base, ev, stat, nature), min_iv)
     max_iv = min(get_iv_value_max(current_level, base, ev, stat, nature), max_iv)
     return min_iv, max_iv, min_iv <= iv <= max_iv
@@ -249,7 +249,7 @@ def test_level(current_level, stat):
         return False 
     res, min_attack_iv, max_attack_iv = test_level_stat(current_level, attack         , attack_level         , attack_base         , attack_iv         , attack_ev         , attack_nature         , min_attack_iv, max_attack_iv):
     if not res:
-        return False 
+        return False
     res, min_defense_iv, max_defense_iv = test_level_stat(current_level, defense        , defense_level        , defense_base        , defense_iv        , defense_ev        , defense_nature        , min_defense_iv, max_defense_iv):
     if not res:
         return False 
@@ -264,23 +264,49 @@ def test_level(current_level, stat):
         return False 
     
     if characteristics is not None:
-        if not test_characteristic('hp', min_hp_iv, max_hp_iv, (max_attack_iv, max_defense_iv, max_speed_iv, max_special_attack_iv, max_special_defense_iv)):
+        max_iv = max(attack_iv, defense_iv, speed_iv, special_attack_iv, special_defence_iv, hp_iv)
+        max_iv_dict = dict(('attack', max_attack_iv), ('defense', max_defense_iv), ('speed', max_speed_iv), ('special attack', max_special_attack_iv), ('special defense', max_special_defence_iv), ('hp', max_hp_iv))
+        min_iv_dict = dict(('attack', min_attack_iv), ('defense', min_defense_iv), ('speed', min_speed_iv), ('special attack', min_special_attack_iv), ('special defense', min_special_defence_iv), ('hp', min_hp_iv))
+        highest_max_iv_names = set([stat_name for stat_name, iv in max_iv_dict if max_iv == iv])
+        if not highest_max_iv_names > highest_iv_names: 
+            # same as previous tests. if this will not happen then one of the stats will be out of range. 2 options:
+            #    a stat not in highest_iv_names will have a higher iv than the ones in highest_iv_names
+            #    a stat which should be in highest_iv_names will not be there (it will have lower iv than expected).
             return False
+        # if we passed this test, it means characteristic_stat_name must be in highest_max_iv_names
+            
+        not_highest_iv_names = set(['attack', 'defense', 'speed', 'special attack', 'special defense', 'hp']) - highest_iv_names
+        if max(max_iv_dict[stat_name] for stat_name in not_highest_iv_names) > max_iv_dict[characteristic_stat_name]:
+            # same as prev test - if this test will fail it means there is a higher max value for a stat other than the highest_iv_names. this will cause not all of the expected highest_iv_names to
+            # be in highest_max_iv_names, which will "fail not highest_max_iv_names > highest_iv_names"
+            return False
+        
+        if not any(a % 5 == characteristics_mod_5 for a in xrange(min_iv_dict[characteristic_stat_name], max_iv_dict[characteristic_stat_name] + 1)):
+            return False
+        # same as 'if not any(a % 5 == 0 for a in xrange(min_iv, max_iv + 1)):'
+        # mod = min_iv_dict[characteristic_stat_name] % 5
+        # diff = max_iv_dict[characteristic_stat_name] - min_iv_dict[characteristic_stat_name]
+        # overlapped_characteristics_mod_5 = characteristics_mod_5 if characteristics_mod_5 != 0 else 5
+        # if diff + 1 < 5 and mod != characteristics_mod_5 and mod + diff < overlapped_characteristics_mod_5:
+            # return False
+        
+        # if not test_characteristic('hp', min_hp_iv, max_hp_iv, (max_attack_iv, max_defense_iv, max_speed_iv, max_special_attack_iv, max_special_defense_iv)):
+            # return False
 
-        if not test_characteristic('attack', min_attack_iv, max_attack_iv, (max_hp_iv, max_defense_iv, max_speed_iv, max_special_attack_iv, max_special_defense_iv)
-            return False
+        # if not test_characteristic('attack', min_attack_iv, max_attack_iv, (max_hp_iv, max_defense_iv, max_speed_iv, max_special_attack_iv, max_special_defense_iv)
+            # return False
 
-        if not test_characteristic('defense', min_defense_iv, max_defense_iv, (max_attack_iv, max_hp_iv, max_speed_iv, max_special_attack_iv, max_special_defense_iv)
-            return False
+        # if not test_characteristic('defense', min_defense_iv, max_defense_iv, (max_attack_iv, max_hp_iv, max_speed_iv, max_special_attack_iv, max_special_defense_iv)
+            # return False
 
-        if not test_characteristic('speed', min_speed_iv, max_speed_iv, (max_attack_iv, max_defense_iv, max_hp_iv, max_special_attack_iv, max_special_defense_iv)
-            return False
+        # if not test_characteristic('speed', min_speed_iv, max_speed_iv, (max_attack_iv, max_defense_iv, max_hp_iv, max_special_attack_iv, max_special_defense_iv)
+            # return False
 
-        if not test_characteristic('special attack', min_special_attack_iv, max_special_attack_iv, (max_attack_iv, max_defense_iv, max_speed_iv, max_hp_iv, max_special_defense_iv)
-            return False
+        # if not test_characteristic('special attack', min_special_attack_iv, max_special_attack_iv, (max_attack_iv, max_defense_iv, max_speed_iv, max_hp_iv, max_special_defense_iv)
+            # return False
 
-        if not test_characteristic('special defense', min_special_defense_iv, max_special_defense_iv, (max_attack_iv, max_defense_iv, max_speed_iv, max_special_attack_iv, max_hp_iv)
-            return False
+        # if not test_characteristic('special defense', min_special_defense_iv, max_special_defense_iv, (max_attack_iv, max_defense_iv, max_speed_iv, max_special_attack_iv, max_hp_iv)
+            # return False
                     
     return True
 
@@ -298,12 +324,13 @@ def get_tested_levels(current_level, pokemon, nature, characteristics = None, hi
         characteristic_stat_name, characteristics_mod_5 = characteristics_table[characteristics]
         max_iv = max(attack_iv, defense_iv, speed_iv, special_attack_iv, special_defence_iv, hp_iv)
         iv_dict = dict(('attack', attack_iv), ('defense', defense_iv), ('speed', speed_iv), ('special attack', special_attack_iv), ('special defense', special_defence_iv), ('hp', hp_iv))
-        highest_iv_names = [stat_name for stat_name, iv in iv_dict if max_iv == iv]
+        highest_iv_names = set([stat_name for stat_name, iv in iv_dict if max_iv == iv])
         
         if characteristic_stat_name not in highest_iv_names:
             print 'highest expected iv mismatch owned characteristics'
             return None
-        if len(highest_iv_names) == 1 and iv_dict[characteristic_stat_name] % 5 != characteristics_mod_5:
+
+        if iv_dict[characteristic_stat_name] % 5 != characteristics_mod_5:
             print 'invalid expected iv modulu 5 for owned characteristics text'
             return None
     hp_level_min, hp_level_max = get_hp_tested_level(current_level, hp_base, hp_iv)
