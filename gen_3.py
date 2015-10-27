@@ -157,7 +157,6 @@ class PokemonGame(object):
 
     
     
-class InvalidStat(Exception): pass
 class InvalidLevelForStat(Exception): pass
 class InvalidLevel(Exception): pass
 
@@ -180,14 +179,44 @@ class PokemonStat(object):
         )
         
 class PokemonFoundData(object):
-    def __init__(self, current_level):
+    def __init__(self, current_level = None, nature = None, characteristics = None, ability = None):
         super(PokemonFoundData, self).__init__()
         self.min_iv = PokemonStat(0, 0, 0, 0, 0, 0)
-        self.max_iv = PokemonStat(31, 31, 31, 31, 31,31)
+        self.max_iv = PokemonStat(31, 31, 31, 31, 31, 31)
         
         self.current_level = current_level
+        
+        self.ability = ability
+        
+        self.update_characteristics(characteristics)
+        
+        if nature is not None:
+            self.update_nature(nature)
+        else:
+            self.nature = PokemonStat(1, None, None, None, None, None) # the last two are flavored tastes
 
-    def verify_level_stat(self, name, stat, known, expected):
+    def update_ability(self, ability):
+        self.ability = ability
+            
+    def update_nature(self, nature):
+        self.nature = PokemonStat(1, *PokemonGame.nature_factors[nature][:-2]) # the last two are flavored tastes
+        
+    def update_level(self, current_level):
+        if current_level < self.current_level:
+            raise InvalidLevel("got lower level, think of creating a new " + self.__class__)
+        self.current_level = current_level
+        
+    def update_characteristics(self, characteristics):
+
+        self.characteristics = characteristics
+        
+        if characteristics is not None:
+            self.characteristic_stat_name, self.characteristics_mod_5 = PokemonGame.characteristics_table[characteristics]
+        else:
+            self.characteristic_stat_name, self.characteristics_mod_5 = None, None
+
+
+    def update_level_stat(self, name, stat, known, expected):
         if name == "hp":
             f_max = PokemonGame.get_hp_iv_value_max
             f_min = PokemonGame.get_hp_iv_value_min
@@ -195,44 +224,35 @@ class PokemonFoundData(object):
             f_max = PokemonGame.get_iv_value_max
             f_min = PokemonGame.get_iv_value_min
             
-        min_iv = max(f_min(self.current_level, getattr(known.base, name), getattr(known.ev, name), stat, getattr(known.nature, name)), getattr(self.min_iv, name))
-        max_iv = min(f_max(self.current_level, getattr(known.base, name), getattr(known.ev, name), stat, getattr(known.nature, name)), getattr(self.max_iv, name))
-
-        if not min_iv <= getattr(expected.iv, name) <= max_iv:
-            raise InvalidStat("min/max " + name)
+        nature = expected.get_determining_nature(self)
             
+        min_iv = max(f_min(self.current_level, getattr(known.base, name), getattr(known.ev, name), stat, getattr(nature, name)), getattr(self.min_iv, name))
+        max_iv = min(f_max(self.current_level, getattr(known.base, name), getattr(known.ev, name), stat, getattr(nature, name)), getattr(self.max_iv, name))
+
         setattr(self.min_iv, name, min_iv)
         setattr(self.max_iv, name, max_iv)
 
+    def verify_ability(self, expected):
+        return expected.ability is None or expected.ability == self.ability
+    def verify_nature(self, nature):
+        return expected.nature is None or expected.nature == self.nature
+        
+    def verify_level_stat(self, name, expected):
+        return getattr(self.min_iv, name) <= getattr(expected.iv, name) <= getattr(self.max_iv, name)
+        
 
-
-class PokemonKnownData(object):
-    def __init__(self, pokemon, nature, characteristics = None):
-        super(PokemonKnownData, self).__init__()
-        self.characteristics = characteristics
-        
-        if characteristics is not None:
-            self.characteristic_stat_name, self.characteristics_mod_5 = PokemonGame.characteristics_table[characteristics]
-        else:
-            self.characteristic_stat_name, self.characteristics_mod_5 = None, None
-        
-        self.pokemon = pokemon
-        self.nature = PokemonStat(1, *PokemonGame.nature_factors[nature][:-2]) # the last two are flavored tastes
-        
-        self.ev = PokemonStat(0, 0, 0, 0, 0, 0)
-        
-        self.base = PokemonStat(*PokemonGame.pokemon_base[pokemon])
-        
     def _verify_characteristics(self, min_iv, max_iv):
         if self.characteristics is not None:
             iv_dict = max_iv.todict()
             single_max_iv = max(iv_dict.itervalues())
             highest_iv_names = set([stat_name for stat_name, iv in iv_dict if single_max_iv == iv])
-            if self.known.characteristic_stat_name not in highest_iv_names:
-                raise InvalidStat("highest expected iv mismatch owned characteristics " + name)
+            if not self.characteristic_stat_name not in highest_iv_names:
+                return False
             
             if not any(a % 5 == self.characteristics_mod_5 for a in xrange(getattr(min_iv, self.characteristic_stat_name), getattr(max_iv, self.characteristic_stat_name) + 1)):
-                raise InvalidStat('invalid expected iv modulu 5 for owned characteristics text ' + name)
+                return False
+                
+        return True
             
             # min_characteristics = getattr(min_iv, self.characteristic_stat_name)
             # max_characteristics = getattr(max_iv, self.characteristic_stat_name)
@@ -240,24 +260,48 @@ class PokemonKnownData(object):
             # diff = max_characteristics - min_characteristics
             # overlapped_characteristics_mod_5 = self.characteristics_mod_5 if self.characteristics_mod_5 != 0 else 5
             # if diff + 1 < 5 and mod != self.characteristics_mod_5 and mod + diff < overlapped_characteristics_mod_5:
-                # raise InvalidStat("characteristics " + name)
+                # return False
                 
-    def verify_characteristics(self, found):
-        self._verify_characteristics(found.min_iv, found.max_iv)
+    def verify_characteristics(self):
+        return self._verify_characteristics(min_iv, max_iv)
         
     def initial_verify_characteristics(self, expected):
-        self._verify_characteristics(expected.iv, expected.iv)
+        return self._verify_characteristics(expected.iv, expected.iv)
+        
+class PokemonKnownData(object):
+    def __init__(self, pokemon):
+        super(PokemonKnownData, self).__init__()
+        
+        self.pokemon = pokemon
+        
+        self.ev = PokemonStat(0, 0, 0, 0, 0, 0)
+        
+        self.base = PokemonStat(*PokemonGame.pokemon_base[pokemon])
         
 class PokemonExpectedData(object):
-    def __init__(self, hidden_power = None):
+    def __init__(self, hidden_power = None, ability = None, nature = None):
         super(PokemonExpectedData, self).__init__()
         
         self.hidden_power = hidden_power
+        
+        self.ability = ability
+        
+        if nature is not None:
+            self.nature = PokemonStat(1, *PokemonGame.nature_factors[nature][:-2]) # the last two are flavored tastes
+        else:
+            self.nature = None
+        
         if self.hidden_power is not None:
             self.iv = PokemonStat(*PokemonGame.hidden_power_max_stat[hidden_power])
         else:
             self.iv = PokemonStat(31, 31, 31, 31, 31, 31)
-            
+
+    def get_determining_nature(self, found):
+        if self.nature is not None:
+            return self.nature
+        else:
+            return found.nature
+    
     def get_tested_level(self, name, found, known):
         if name == 'hp':
             f_min = PokemonGame.get_hp_iv_value_min
@@ -269,7 +313,7 @@ class PokemonExpectedData(object):
             f_value = PokemonGame.get_stat_value
             
         base = getattr(known.base, name)
-        nature = getattr(known.nature, name)
+        nature = getattr(self.get_determining_nature(found), name)
         ev = getattr(known.ev, name)
         iv = getattr(self.iv, name)
             
@@ -326,32 +370,66 @@ class PokemonGeneFinder(object):
         http://bulbapedia.bulbagarden.net/wiki/Main_Page
 
     """
-    def __init__(self, current_level, pokemon, nature, characteristics = None, hidden_power = None, minimize_menu = False):
+    def __init__(self, pokemon, level = None, nature = None, characteristics = None, hidden_power = None, ability = None, found_nature = None, found_ability = None, minimize_menu = False):
         super(PokemonGeneFinder, self).__init__()
         
         self.minimize_menu = minimize_menu 
-        self.found = PokemonFoundData(current_level)
-        self.known = PokemonKnownData(pokemon, nature, characteristics)
-        self.expected = PokemonExpectedData(hidden_power)
+        self.found = PokemonFoundData(level, found_nature, characteristics, found_ability)
+        self.known = PokemonKnownData(pokemon)
+        self.expected = PokemonExpectedData(hidden_power, ability, nature)
         
-    def verify_level(self, current_level, stat):
-        self.found.current_level = current_level
-        hp, attack, defense, speed, special_attack, special_defense = stat
+    def verify_level_hp(self, current_level, hp):
+        self.found.update_level(current_level)
+        
         try:
-            self.found.verify_level_stat("hp", hp, self.known, self.expected)
-            self.found.verify_level_stat("attack", attack, self.known, self.expected)
-            self.found.verify_level_stat("defense", defense, self.known, self.expected)
-            self.found.verify_level_stat("speed", speed, self.known, self.expected)
-            self.found.verify_level_stat("special_attack", special_attack, self.known, self.expected)
-            self.found.verify_level_stat("special_defense", special_defense, self.known, self.expected)
+            
+            self.found.update_level_stat("hp", hp, self.known, self.expected)
         except NoSuchIVForStat:
             raise InvalidLevel("stat")
+
+        if not self.found.verify_level_stat("hp", self.expected):
+            return False
+        if self.known.characteristic_stat_name == 'hp':
+            return self.found.verify_characteristics()
             
-        try:
-            self.known.verify_characteristics(self.found)
-        except InvalidStat:
-            raise InvalidLevel("characteristics")
+        return True
         
+    def update_characteristics(self, characteristics):
+        self.found.update_characteristics(characteristics)
+        return self.found.verify_level_stat("hp", self.expected)
+        
+    def update_nature(self, nature):
+        self.found.update_nature(nature)
+        return self.found.verify_nature(self.expected) and self.found.verify_level_stat("hp", self.expected)
+        
+    def update_ability(self, ability):
+        self.found.update_ability(ability)
+        return self.found.verify_ability(self.expected)
+        
+    def verify_level(self, current_level, stat):
+        self.found.update_level(current_level)
+        hp, attack, defense, speed, special_attack, special_defense = stat
+        try:
+            
+            self.found.update_level_stat("hp", hp, self.known, self.expected)
+            self.found.update_level_stat("attack", attack, self.known, self.expected)
+            self.found.update_level_stat("defense", defense, self.known, self.expected)
+            self.found.update_level_stat("speed", speed, self.known, self.expected)
+            self.found.update_level_stat("special_attack", special_attack, self.known, self.expected)
+            self.found.update_level_stat("special_defense", special_defense, self.known, self.expected)
+        except NoSuchIVForStat:
+            raise InvalidLevel("stat")
+
+        return all([
+            self.found.verify_level_stat("hp", self.expected),
+            self.found.verify_level_stat("attack", self.expected),
+            self.found.verify_level_stat("defense", self.expected),
+            self.found.verify_level_stat("speed", self.expected),
+            self.found.verify_level_stat("special_attack", self.expected),
+            self.found.verify_level_stat("special_defense", self.expected),
+            self.found.verify_characteristics(),
+        ])
+
     def _statisfy_restraint(self, lvl_set, name, lvl, known, expected):
         if name == 'hp':
             f_min = PokemonGame.get_hp_iv_value_min
@@ -363,7 +441,7 @@ class PokemonGeneFinder(object):
             f_value = PokemonGame.get_stat_value
             
         base = getattr(known.base, name)
-        nature = getattr(known.nature, name)
+        nature = getattr(expected.get_determining_nature(self.found), name)
         ev = getattr(known.ev, name)
         iv = getattr(expected.iv, name)
         
@@ -383,7 +461,7 @@ class PokemonGeneFinder(object):
                 
     def get_tested_levels(self):
         
-        self.known.initial_verify_characteristics(self.expected)
+        self.found.initial_verify_characteristics(self.expected)
         
         hp_level_min, hp_level_max = self.expected.get_tested_level("hp", self.found, self.known)
         attack_level_min, attack_level_max  = self.expected.get_tested_level("attack", self.found, self.known)
@@ -413,5 +491,5 @@ class PokemonGeneFinder(object):
 
         return sorted_levels
 
-gf = PokemonGeneFinder(1, "Abra", "careful", hidden_power = None)
+gf = PokemonGeneFinder("Abra", level = 1, nature = "careful", hidden_power = None)
 print "levels", gf.get_tested_levels()
