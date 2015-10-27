@@ -1,374 +1,417 @@
+"""
+gen_3.py
+run using 
+    python -i gen_3.py
+then use the 'gf' object to run tests on each level
+for example:
+    # (hp = 66, attack = 27, defense = 23, speed = 70, special_attack = 71, special_defense = 52)
+    gf.verify_level(current_level = 31, stat = (66, 27, 23, 70, 71, 52))
+"""
 import math
-from operator import itemgetter
 
-hidden_power_max_stat = {
-    # name : (hp, atk, def, spd, special atk, special def)
-    'bug' : (31, 31, 31, 30, 31, 30),
-    'dark' : (31, 31, 31, 31, 31, 31),
-    'dragon' : (30, 31, 31, 31, 31, 31),
-    'electric' : (31, 31, 31, 31, 30, 31),
-    'fighting' : (31, 31, 30, 30, 30, 30),
-    'fire' : (31, 30, 31, 30, 30, 31),
-    'flying' : (31, 31, 31, 30, 30, 30),
-    'ghost' : (31, 30, 31, 31, 31, 30),
-    'grass' : (30, 31, 31, 31, 30, 31),
-    'ground' : (31, 31, 31, 31, 30, 30),
-    'ice' : (31, 31, 31, 30, 31, 30),
-    'poison' : (31, 31, 30, 31, 30, 30),
-    'psychic' : (30, 31, 31, 30, 31, 31),
-    'rock' : (31, 31, 30, 30, 31, 30),
-    'steel' : (31, 31, 31, 31, 31, 30),
-    'water' : (31, 31, 31, 30, 30, 31),
-}
-
-nature_factors = {
-    # name : (attack_factor, defense_factor, speed_factor, special_attack_factor, special_defense_factor, spice_like, spice_dislike)
-    'adamant' : (1.1, 1, 1, 0.9, 1, 'spicy', 'dry'),
-    'bashful' : (1, 1, 1, 1, 1, '', ''),
-    'bold' : (0.9, 1.1, 1, 1, 1, 'sour', 'spicy'),
-    'brave' : (1.1, 1, 0.9, 1, 1, 'spicy', 'sweet'),
-    'calm' : (0.9, 1, 1, 1, 1.1, 'bitter', 'spicy'),
-    'careful' : (1, 1, 1, 0.9, 1.1, 'bitter', 'dry'),
-    'docile' : (1, 1, 1, 1, 1, '', ''),
-    'gentle' : (1, 0.9, 1, 1, 1.1, 'bitter', 'sour'),
-    'hardy' : (1, 1, 1, 1, 1, '', ''),
-    'hasty' : (1, 0.9, 1.1, 1, 1, 'sweet', 'sour'),
-    'impish' : (1, 1.1, 1, 0.9, 1, 'sour', 'dry'),
-    'jolly' : (1, 1, 1.1, 0.9, 1, 'sweet', 'dry'),
-    'lax' : (1, 1.1, 1, 1, 0.9, 'sour', 'bitter'),
-    'lonely' : (1.1, 0.9, 1, 1, 1, 'spicy', 'sour'),
-    'mild' : (1, 0.9, 1, 1.1, 1, 'dry', 'sour'),
-    'modest' : (0.9, 1, 1, 1.1, 1, 'dry', 'spicy'),
-    'naive' : (1, 1, 1.1, 1, 0.9, 'sweet', 'bitter'),
-    'naughty' : (1.1, 1, 1, 1, 0.9, 'spicy', 'bitter'),
-    'quiet' : (1, 1, 0.9, 1.1, 1, 'dry', 'sweet'),
-    'quircky' : (1, 1, 1, 1, 1, '', ''),
-    'rash' : (1, 1, 1, 1.1, 0.9, 'dry', 'bitter'),
-    'relaxed' : (1, 1.1, 0.9, 1, 1, 'sour', 'sweet'),
-    'sassy' : (1, 1, 0.9, 1, 1.1, 'bitter', 'sweet'),
-    'serious' : (1, 1, 1, 1, 1, '', ''),
-    'timid' : (0.9, 1, 1.1, 1, 1, 'sweet', 'spicy'),
+def load_pokemon_base_stat(filename):
+    _pokemon_base = {}
+    for l in open(filename, "rt"):
+        l = l.replace('\n', '')
+        if l.startswith("#") or l == '':
+            continue
+        #,Name,HP,Attack,Defense,Sp. Atk,Sp. Def,Speed
+        number, name, hp, attack, defense, special_attack, special_defense, speed = l.split(',')
+        number, name, hp, attack, defense, special_attack, special_defense, speed = int(number), name, int(hp), int(attack), int(defense), int(special_attack), int(special_defense), int(speed)
+        _pokemon_base[name] = hp, attack, defense, speed, special_attack, special_defense
+    return _pokemon_base
     
+class NoSuchIVForStat(Exception): pass
+class PokemonGame(object):
     
-}
+    hidden_power_max_stat = {
+        # name : (hp, atk, def, spd, special atk, special def)
+        'bug' : (31, 31, 31, 30, 31, 30),
+        'dark' : (31, 31, 31, 31, 31, 31),
+        'dragon' : (30, 31, 31, 31, 31, 31),
+        'electric' : (31, 31, 31, 31, 30, 31),
+        'fighting' : (31, 31, 30, 30, 30, 30),
+        'fire' : (31, 30, 31, 30, 30, 31),
+        'flying' : (31, 31, 31, 30, 30, 30),
+        'ghost' : (31, 30, 31, 31, 31, 30),
+        'grass' : (30, 31, 31, 31, 30, 31),
+        'ground' : (31, 31, 31, 31, 30, 30),
+        'ice' : (31, 31, 31, 30, 31, 30),
+        'poison' : (31, 31, 30, 31, 30, 30),
+        'psychic' : (30, 31, 31, 30, 31, 31),
+        'rock' : (31, 31, 30, 30, 31, 30),
+        'steel' : (31, 31, 31, 31, 31, 30),
+        'water' : (31, 31, 31, 30, 30, 31),
+    }
 
-characteristics_table = {
-    'Ofter dozes off' : ('hp', 1),
-    'Loves to eat' : ('hp', 0),
-    'Likes to relax' : ('hp', 4),
-    'Scatters things often' : ('hp', 3),
-    'Often scatters things' : ('hp', 2),
-    
-    'Likes to thrash about' : ('attack', 1),
-    'Proud of its power' : ('attack', 0),
-    'Quick tempered' : ('attack', 4),
-    'Likes to fight' : ('attack', 3),
-    'A little quick tempered' : ('attack', 2),
-    
-    'Capable of taking hits' : ('defense', 1),
-    'Sturdy body' : ('defense', 0),
-    'Good perseverance' : ('defense', 4),
-    'Good endurance' : ('defense', 3),
-    'Highly persistent' : ('defense', 2),
-    
-    'Alert to sounds' : ('speed', 1),
-    'Likes to run' : ('speed', 0),
-    'Quick to flee' : ('speed', 4),
-    'Somewhat of a clown' : ('speed', 3),
-    'Impetuous and silly' : ('speed', 2),
-    
-    'Mischievous' : ('special attack', 1),
-    'Highly curious' : ('special attack', 0),
-    'Very finicky' : ('special attack', 4),
-    'Often lost in thought' : ('special attack', 3),
-    'Thoroughly cunning' : ('special attack', 2),
-    
-    'Somewhat vain' : ('special defense', 1),
-    'Strong willed' : ('special defense', 0),
-    'Somewhat stubborn' : ('special defense', 4),
-    'Hates to lose' : ('special defense', 3),
-    'Strongly defiant' : ('special defense', 2),
-}
-
-pokemon_base = {}
-for l in open("pokemon_stat.csv", "rt"):
-    l = l.replace('\n', '')
-    if l.startswith("#") or l == '':
-        continue
-    #,Name,HP,Attack,Defense,Sp. Atk,Sp. Def,Speed
-    number, name, hp, attack, defense, special_attack, special_defense, speed = l.split(',')
-    number, name, hp, attack, defense, special_attack, special_defense, speed = int(number), name, int(hp), int(attack), int(defense), int(special_attack), int(special_defense), int(speed)
-    pokemon_base[name] = hp, attack, defense, speed, special_attack, special_defense
-    
-def get_stat_hp_value(level, base, iv, ev):
-    return math.floor(           (((2 * base + iv + math.floor(ev / 4)) * level) / 100) + level + 10          )
-    # get_stat_value(level / 2, base + 50, iv, ev, 2)
-    # return math.floor(math.floor((((2 * (base + 50) + iv + math.floor(ev / 4)) * level / 2) / 100)          + 5) * 2)
-    # return math.floor(math.floor((((2 * base + 100 + iv + math.floor(ev / 4)) * level) / 100)          + 10))
-    # return math.floor(math.floor((((2 * base + iv + math.floor(ev / 4)) * level) / 100) + 100 * level / 100          + 10))
-    # return math.floor(math.floor((((2 * base + iv + math.floor(ev / 4)) * level) / 100) + level          + 10))
-
-def get_stat_value(level, base, iv, ev, nature):
-    return math.floor(math.floor((((2 * base + iv + math.floor(ev / 4)) * level) / 100)          + 5) * nature)
-
-
-def is_valid_hp_stat(level, base, ev, stat):
-   if stat < 10:
-	  return False
-   if level <= 50:
-	  return True
-   if math.ceil(((stat - 10 - level) * 100) / level) <> math.floor(((stat - 10 - level) * 100 + 99)/ level):
-	  return False
-   return True
-   # return ($stat >= 10 and $level <= 50 or (Ceiling((($stat - 10) * 50) / $level) <> Floor((($stat - 10) * 50 + 49)/ $level)))
-
-def is_valid_stat(level, base, ev, stat, nature):
-   if stat < 5:
-	  return False
-   if level <= 50:
-	  return True
-   if math.ceil(((stat / nature - 5) * 100) / level) <>  math.floor(((stat / nature - 5) * 100 + 99)/ level):
-	  return False
-   return True
-   # return $stat >= 5 and ($level <= 50 or Ceiling((($stat - 5) * 50) / $level) <>  Floor((($stat - 5) * 50 + 49)/ $level))
-
-
-def get_hp_iv_value_min(level, base, ev, stat):
-    return min(iv for iv in xrange(32) if get_stat_hp_value(level, base, iv, ev) == stat)
-    if not is_valid_hp_stat(level, base, ev, stat):
-        return None
-    return max(min(math.ceil  ( (stat - 10 - level)  * 100        / level  - 2 * base - math.floor(ev / 4)), 31), 0)
-
-def get_hp_iv_value_max(level, base, ev, stat):
-    return max(iv for iv in xrange(32) if get_stat_hp_value(level, base, iv, ev) == stat)
-    if not is_valid_hp_stat(level, base, ev, stat):
-        return None
-    return max(min(math.floor (((stat - 10 - level)  * 100 + 99)  / level) - 2 * base - math.floor(ev / 4) , 31), 0)
-
-def get_iv_value_min(level, base, ev, stat, nature):
-    return min(iv for iv in xrange(32) if get_stat_value(level, base, iv, ev, nature) == stat)
-    if not is_valid_stat(level, base, ev, stat, nature):
-        return None
-    return max(min(math.ceil  ( (stat / nature - 5 ) * 100        / level  - 2 * base - math.floor(ev / 4)), 31), 0)
-
-def get_iv_value_max(level, base, ev, stat, nature):
-    return max(iv for iv in xrange(32) if get_stat_value(level, base, iv, ev, nature) == stat)
-    if not is_valid_stat(level, base, ev, stat, nature):
-        return None
-    return max(min(math.floor (((stat / nature - 5 ) * 100 + 99) / level)  - 2 * base - math.floor(ev / 4) , 31), 0)
-
-
-def is_single_hp_iv(lvl, base, iv):
-    stat = get_stat_hp_value(lvl, base, iv, 0)
-    min, max = get_hp_iv_value_min(lvl, base, 0, stat), get_hp_iv_value_max(lvl, base, 0, stat)
-    if False in (min, max):
-        return False
-    return min == max
-
-def is_single_iv(lvl, base, iv, nature):
-    stat = get_stat_value(lvl, base, iv, 0, nature)
-    min, max = get_iv_value_min(lvl, base, 0, stat, nature), get_iv_value_max(lvl, base, 0, stat, nature)
-    if False in (min, max):
-        return False
-    return min == max
-
-# def get_tested_level(current_level, base, iv, nature):
-    # for lvl in xrange(current_level, 101):
-        # if is_single_iv(lvl, base, iv, nature):
-            # return lvl
-    # return None
-  
-# def get_hp_tested_level(current_level, base, iv):
-    # for lvl in xrange(current_level, 101):
-        # if is_single_hp_iv(lvl, base, iv):
-            # return lvl
-    # return None
-
-def get_tested_level(current_level, base, iv, nature):
-    min_lvl, max_lvl = None, None
-    for lvl in xrange(current_level, 101):
-        stat = get_stat_value(lvl, base, iv, ev, nature)
-        if min_lvl is None and get_iv_value_min(lvl, base, ev, stat, nature) == iv:
-            min_lvl = lvl
-        if max_lvl is None and get_iv_value_max(lvl, base, ev, stat, nature) == iv:
-            max_lvl = lvl
-        if None not in (min_lvl, max_lvl):
-            break
-    return min_lvl, max_lvl
-  
-def get_hp_tested_level(current_level, base, iv):
-    min_lvl, max_lvl = None, None
-    for lvl in xrange(current_level, 101):
-        stat = get_stat_hp_value(lvl, base, iv, ev)
-        if min_lvl is None and get_hp_iv_value_min(lvl, base, ev, stat) == iv:
-            min_lvl = lvl
-        if max_lvl is None and get_hp_iv_value_max(lvl, base, ev, stat) == iv:
-            max_lvl = lvl
-        if None not in (min_lvl, max_lvl):
-            break
-    return min_lvl, max_lvl
-    
-def test_level_hp_stat(current_level, stat, level, base, iv, ev):
-    min_iv = max(get_hp_iv_value_min(current_level, base, ev, stat), min_iv)
-    max_iv = min(get_hp_iv_value_max(current_level, base, ev, stat), max_iv)
-    return min_iv, max_iv, min_iv <= iv <= max_iv
-    if current_level == level:
-        if stat != get_stat_hp_value(level, base, iv, ev):
-            return False 
-    elif current_level < level:
-        if not get_hp_iv_value_min(current_level, base, ev, stat) <= iv <= get_hp_iv_value_max(current_level, base, ev, stat):
-            return False
-    return True
-    
-def test_level_stat(current_level, stat, level, base, iv, ev, nature, min_iv, max_iv):
-    min_iv = max(get_iv_value_min(current_level, base, ev, stat, nature), min_iv)
-    max_iv = min(get_iv_value_max(current_level, base, ev, stat, nature), max_iv)
-    return min_iv, max_iv, min_iv <= iv <= max_iv
-    if current_level == level:
-        if stat != get_stat_value(level, base, iv, ev, nature):
-            return False 
-    elif current_level < level:
-        if not get_iv_value_min(current_level, base, ev, stat, nature) <= iv <= get_iv_value_max(current_level, base, ev, stat, nature):
-            return False
-    return True
-    
-def test_characteristic(stat_name, min_iv, max_iv, max_ivs):
-    max_without_max_iv = max(max_ivs)
-    if min_iv > max_without_max_iv:
-        if len(highest_iv_names) == 1:
-            if highest_iv_names[0] != stat_name:
-                return False
-            if not any(a % 5 == 0 for a in xrange(min_iv, max_iv + 1)):
-                return False
-            
-def test_level(current_level, stat):
-    hp_ev, attack_ev, defense_ev, speed_ev, special_attack_ev, special_defense_ev = 0, 0, 0, 0, 0, 0
-    hp, attack, defense, speed, special_attack, special_defense = stat
-    res, min_hp_iv, max_hp_iv = test_level_hp_stat(current_level, hp          , hp_level             , hp_base             , hp_iv             , hp_ev                                     , min_hp_iv, max_hp_iv):
-    if not res:
-        return False 
-    res, min_attack_iv, max_attack_iv = test_level_stat(current_level, attack         , attack_level         , attack_base         , attack_iv         , attack_ev         , attack_nature         , min_attack_iv, max_attack_iv):
-    if not res:
-        return False
-    res, min_defense_iv, max_defense_iv = test_level_stat(current_level, defense        , defense_level        , defense_base        , defense_iv        , defense_ev        , defense_nature        , min_defense_iv, max_defense_iv):
-    if not res:
-        return False 
-    res, min_speed_iv, max_speed_iv = test_level_stat(current_level, speed          , speed_level          , speed_base          , speed_iv          , speed_ev          , speed_nature          , min_speed_iv, max_speed_iv):
-    if not res:
-        return False 
-    res, min_special_attack_iv, max_special_attack_iv = test_level_stat(current_level, special_attack , special_attack_level , special_attack_base , special_attack_iv , special_attack_ev , special_attack_nature , min_special_attack_iv, max_special_attack_iv):
-    if not res:
-        return False 
-    res, min_special_defense_iv, max_special_defense_iv = test_level_stat(current_level, special_defense, special_defense_level, special_defense_base, special_defence_iv, special_defense_ev, special_defense_nature, min_special_defense_iv, max_special_defense_iv):
-    if not res:
-        return False 
-    
-    if characteristics is not None:
-        max_iv = max(attack_iv, defense_iv, speed_iv, special_attack_iv, special_defence_iv, hp_iv)
-        max_iv_dict = dict(('attack', max_attack_iv), ('defense', max_defense_iv), ('speed', max_speed_iv), ('special attack', max_special_attack_iv), ('special defense', max_special_defence_iv), ('hp', max_hp_iv))
-        min_iv_dict = dict(('attack', min_attack_iv), ('defense', min_defense_iv), ('speed', min_speed_iv), ('special attack', min_special_attack_iv), ('special defense', min_special_defence_iv), ('hp', min_hp_iv))
-        highest_max_iv_names = set([stat_name for stat_name, iv in max_iv_dict if max_iv == iv])
-        if not highest_max_iv_names > highest_iv_names: 
-            # same as previous tests. if this will not happen then one of the stats will be out of range. 2 options:
-            #    a stat not in highest_iv_names will have a higher iv than the ones in highest_iv_names
-            #    a stat which should be in highest_iv_names will not be there (it will have lower iv than expected).
-            return False
-        # if we passed this test, it means characteristic_stat_name must be in highest_max_iv_names
-            
-        not_highest_iv_names = set(['attack', 'defense', 'speed', 'special attack', 'special defense', 'hp']) - highest_iv_names
-        if max(max_iv_dict[stat_name] for stat_name in not_highest_iv_names) > max_iv_dict[characteristic_stat_name]:
-            # same as prev test - if this test will fail it means there is a higher max value for a stat other than the highest_iv_names. this will cause not all of the expected highest_iv_names to
-            # be in highest_max_iv_names, which will "fail not highest_max_iv_names > highest_iv_names"
-            return False
+    nature_factors = {
+        # name : (attack_factor, defense_factor, speed_factor, special_attack_factor, special_defense_factor, spice_like, spice_dislike)
+        'adamant' : (1.1, 1, 1, 0.9, 1, 'spicy', 'dry'),
+        'bashful' : (1, 1, 1, 1, 1, '', ''),
+        'bold' : (0.9, 1.1, 1, 1, 1, 'sour', 'spicy'),
+        'brave' : (1.1, 1, 0.9, 1, 1, 'spicy', 'sweet'),
+        'calm' : (0.9, 1, 1, 1, 1.1, 'bitter', 'spicy'),
+        'careful' : (1, 1, 1, 0.9, 1.1, 'bitter', 'dry'),
+        'docile' : (1, 1, 1, 1, 1, '', ''),
+        'gentle' : (1, 0.9, 1, 1, 1.1, 'bitter', 'sour'),
+        'hardy' : (1, 1, 1, 1, 1, '', ''),
+        'hasty' : (1, 0.9, 1.1, 1, 1, 'sweet', 'sour'),
+        'impish' : (1, 1.1, 1, 0.9, 1, 'sour', 'dry'),
+        'jolly' : (1, 1, 1.1, 0.9, 1, 'sweet', 'dry'),
+        'lax' : (1, 1.1, 1, 1, 0.9, 'sour', 'bitter'),
+        'lonely' : (1.1, 0.9, 1, 1, 1, 'spicy', 'sour'),
+        'mild' : (1, 0.9, 1, 1.1, 1, 'dry', 'sour'),
+        'modest' : (0.9, 1, 1, 1.1, 1, 'dry', 'spicy'),
+        'naive' : (1, 1, 1.1, 1, 0.9, 'sweet', 'bitter'),
+        'naughty' : (1.1, 1, 1, 1, 0.9, 'spicy', 'bitter'),
+        'quiet' : (1, 1, 0.9, 1.1, 1, 'dry', 'sweet'),
+        'quircky' : (1, 1, 1, 1, 1, '', ''),
+        'rash' : (1, 1, 1, 1.1, 0.9, 'dry', 'bitter'),
+        'relaxed' : (1, 1.1, 0.9, 1, 1, 'sour', 'sweet'),
+        'sassy' : (1, 1, 0.9, 1, 1.1, 'bitter', 'sweet'),
+        'serious' : (1, 1, 1, 1, 1, '', ''),
+        'timid' : (0.9, 1, 1.1, 1, 1, 'sweet', 'spicy'),
         
-        if not any(a % 5 == characteristics_mod_5 for a in xrange(min_iv_dict[characteristic_stat_name], max_iv_dict[characteristic_stat_name] + 1)):
-            return False
-        # same as 'if not any(a % 5 == 0 for a in xrange(min_iv, max_iv + 1)):'
-        # mod = min_iv_dict[characteristic_stat_name] % 5
-        # diff = max_iv_dict[characteristic_stat_name] - min_iv_dict[characteristic_stat_name]
-        # overlapped_characteristics_mod_5 = characteristics_mod_5 if characteristics_mod_5 != 0 else 5
-        # if diff + 1 < 5 and mod != characteristics_mod_5 and mod + diff < overlapped_characteristics_mod_5:
-            # return False
         
-        # if not test_characteristic('hp', min_hp_iv, max_hp_iv, (max_attack_iv, max_defense_iv, max_speed_iv, max_special_attack_iv, max_special_defense_iv)):
-            # return False
+    }
 
-        # if not test_characteristic('attack', min_attack_iv, max_attack_iv, (max_hp_iv, max_defense_iv, max_speed_iv, max_special_attack_iv, max_special_defense_iv)
-            # return False
-
-        # if not test_characteristic('defense', min_defense_iv, max_defense_iv, (max_attack_iv, max_hp_iv, max_speed_iv, max_special_attack_iv, max_special_defense_iv)
-            # return False
-
-        # if not test_characteristic('speed', min_speed_iv, max_speed_iv, (max_attack_iv, max_defense_iv, max_hp_iv, max_special_attack_iv, max_special_defense_iv)
-            # return False
-
-        # if not test_characteristic('special attack', min_special_attack_iv, max_special_attack_iv, (max_attack_iv, max_defense_iv, max_speed_iv, max_hp_iv, max_special_defense_iv)
-            # return False
-
-        # if not test_characteristic('special defense', min_special_defense_iv, max_special_defense_iv, (max_attack_iv, max_defense_iv, max_speed_iv, max_special_attack_iv, max_hp_iv)
-            # return False
-                    
-    return True
-
-def get_tested_levels(current_level, pokemon, nature, characteristics = None, hidden_power = None):
-    if hidden_power is not None:
-        attack_iv, defense_iv, speed_iv, special_attack_iv, special_defence_iv, hp_iv = hidden_power_max_stat[hidden_power]
-    else:
-        attack_iv, defense_iv, speed_iv, special_attack_iv, special_defence_iv, hp_iv = 31, 31, 31, 31, 31, 31
-
-    attack_nature, defense_nature, speed_nature, special_attack_nature, special_defense_nature, _, _ = nature_factors[nature]
-    
-    hp_base, attack_base, defense_base, speed_base, special_attack_base, special_defense_base = pokemon_base[pokemon]
-    
-    if characteristics is not None:
-        characteristic_stat_name, characteristics_mod_5 = characteristics_table[characteristics]
-        max_iv = max(attack_iv, defense_iv, speed_iv, special_attack_iv, special_defence_iv, hp_iv)
-        iv_dict = dict(('attack', attack_iv), ('defense', defense_iv), ('speed', speed_iv), ('special attack', special_attack_iv), ('special defense', special_defence_iv), ('hp', hp_iv))
-        highest_iv_names = set([stat_name for stat_name, iv in iv_dict if max_iv == iv])
+    characteristics_table = {
+        'Ofter dozes off' : ('hp', 1),
+        'Loves to eat' : ('hp', 0),
+        'Likes to relax' : ('hp', 4),
+        'Scatters things often' : ('hp', 3),
+        'Often scatters things' : ('hp', 2),
         
-        if characteristic_stat_name not in highest_iv_names:
-            print 'highest expected iv mismatch owned characteristics'
+        'Likes to thrash about' : ('attack', 1),
+        'Proud of its power' : ('attack', 0),
+        'Quick tempered' : ('attack', 4),
+        'Likes to fight' : ('attack', 3),
+        'A little quick tempered' : ('attack', 2),
+        
+        'Capable of taking hits' : ('defense', 1),
+        'Sturdy body' : ('defense', 0),
+        'Good perseverance' : ('defense', 4),
+        'Good endurance' : ('defense', 3),
+        'Highly persistent' : ('defense', 2),
+        
+        'Alert to sounds' : ('speed', 1),
+        'Likes to run' : ('speed', 0),
+        'Quick to flee' : ('speed', 4),
+        'Somewhat of a clown' : ('speed', 3),
+        'Impetuous and silly' : ('speed', 2),
+        
+        'Mischievous' : ('special_attack', 1),
+        'Highly curious' : ('special_attack', 0),
+        'Very finicky' : ('special_attack', 4),
+        'Often lost in thought' : ('special_attack', 3),
+        'Thoroughly cunning' : ('special_attack', 2),
+        
+        'Somewhat vain' : ('special_defense', 1),
+        'Strong willed' : ('special_defense', 0),
+        'Somewhat stubborn' : ('special_defense', 4),
+        'Hates to lose' : ('special_defense', 3),
+        'Strongly defiant' : ('special_defense', 2),
+    }
+
+    
+    pokemon_base = load_pokemon_base_stat("pokemon_stat.csv")
+    
+    @classmethod
+    def get_stat_hp_value(cls, level, base, iv, ev, nature):
+        return math.floor(           (((2 * base + iv + math.floor(ev / 4)) * level) / 100) + level + 10          )
+
+    @classmethod
+    def get_stat_value(cls, level, base, iv, ev, nature):
+        return math.floor(math.floor((((2 * base + iv + math.floor(ev / 4)) * level) / 100)          + 5) * nature)
+
+    @classmethod
+    def get_hp_iv_value_min(cls, level, base, ev, stat, nature):
+        return min(iv for iv in xrange(32) if cls.get_stat_hp_value(level, base, iv, ev, nature) == stat)
+        if not is_valid_hp_stat(level, base, ev, stat):
             return None
+        return max(min(math.ceil  ( (stat - 10 - level)  * 100        / level  - 2 * base - math.floor(ev / 4)), 31), 0)
 
-        if iv_dict[characteristic_stat_name] % 5 != characteristics_mod_5:
-            print 'invalid expected iv modulu 5 for owned characteristics text'
+    @classmethod
+    def get_hp_iv_value_max(cls, level, base, ev, stat, nature):
+        return max(iv for iv in xrange(32) if cls.get_stat_hp_value(level, base, iv, ev, nature) == stat)
+        if not is_valid_hp_stat(level, base, ev, stat):
             return None
-    hp_level_min, hp_level_max = get_hp_tested_level(current_level, hp_base, hp_iv)
-    attack_level_min, attack_level_max = get_tested_level(current_level, attack_base, attack_iv, attack_nature)
-    defense_level_min, defense_level_max = get_tested_level(current_level, defense_base, defense_iv, defense_nature)
-    speed_level_min, speed_level_max = get_tested_level(current_level, speed_base, speed_iv, speed_nature)
-    special_attack_level_min, special_attack_level_max = get_tested_level(current_level, special_attack_base, special_attack_iv, special_attack_nature)
-    special_defense_level_min, special_defense_level_max = get_tested_level(current_level, special_defense_base, special_defence_iv, special_defense_nature)
+        return max(min(math.floor (((stat - 10 - level)  * 100 + 99)  / level) - 2 * base - math.floor(ev / 4) , 31), 0)
 
-    print "-hp min at lvl ", hp_level_min, "should be", get_stat_hp_value(hp_level_min, hp_base, hp_iv, 0)
-    print "-hp max at lvl ", hp_level_max, "should be", get_stat_hp_value(hp_level_max, hp_base, hp_iv, 0)
+    @classmethod
+    def get_iv_value_list(cls, level, base, ev, stat, nature):
+        return [iv for iv in xrange(32) if cls.get_stat_value(level, base, iv, ev, nature) == stat]
+    @classmethod
+    def get_iv_value_min(cls, level, base, ev, stat, nature):
+        l = cls.get_iv_value_list(level, base, ev, stat, nature)
+        if len(l) == 0:
+            raise NoSuchIVForStat()
+        return min(l)
+        
+    @classmethod
+    def get_iv_value_max(cls, level, base, ev, stat, nature):
+        l = cls.get_iv_value_list(level, base, ev, stat, nature)
+        if len(l) == 0:
+            raise NoSuchIVForStat()
+        return max(l)
+
     
-    print "-attack min at lvl ", attack_level_min, "should be", get_stat_value(attack_level_min, attack_base, attack_iv, 0, attack_nature)
-    print "-attack max at lvl ", attack_level_max, "should be", get_stat_value(attack_level_max, attack_base, attack_iv, 0, attack_nature)
     
-    print "-defense min at lvl ", defense_level_min, "should be", get_stat_value(defense_level_min, defense_base, defense_iv, 0, defense_nature)
-    print "-defense max at lvl ", defense_level_max, "should be", get_stat_value(defense_level_max, defense_base, defense_iv, 0, defense_nature)
-    
-    print "-speed min at lvl ", speed_level_min, "should be", get_stat_value(speed_level_min, speed_base, speed_iv, 0, speed_nature)
-    print "-speed max at lvl ", speed_level_max, "should be", get_stat_value(speed_level_max, speed_base, speed_iv, 0, speed_nature)
-    
-    print "-special attack min at lvl ", special_attack_level_min, "should be", get_stat_value(special_attack_level_min, special_attack_base, special_attack_iv, 0, special_attack_nature)
-    print "-special attack max at lvl ", special_attack_level_max, "should be", get_stat_value(special_attack_level_max, special_attack_base, special_attack_iv, 0, special_attack_nature)
-    
-    print "-special defense min at lvl ", special_defense_level_min, "should be", get_stat_value(special_defense_level_min, special_defense_base, special_defence_iv, 0, special_defense_nature)
-    print "-special defense max at lvl ", special_defense_level_max, "should be", get_stat_value(special_defense_level_max, special_defense_base, special_defence_iv, 0, special_defense_nature)
+class InvalidStat(Exception): pass
+class InvalidLevelForStat(Exception): pass
+class InvalidLevel(Exception): pass
+
+class PokemonStat(object):
+    def __init__(self, hp, attack, defense, speed, special_attack, special_defense):
+        self.hp = hp
+        self.attack = attack
+        self.defense = defense
+        self.speed = speed
+        self.special_attack = special_attack
+        self.special_defense = special_defense
+    def todict(self):
+        return dict(
+            ('hp', self.hp),
+            ('attack', self.attack), 
+            ('defense', self.defense),
+            ('speed', self.speed),
+            ('special_attack', self.special_attack),
+            ('special_defense', self.special_defence), 
+        )
+        
+class PokemonFoundData(object):
+    def __init__(self, current_level):
+        super(PokemonFoundData, self).__init__()
+        self.min_iv = PokemonStat(0, 0, 0, 0, 0, 0)
+        self.max_iv = PokemonStat(31, 31, 31, 31, 31,31)
+        
+        self.current_level = current_level
+
+    def verify_level_stat(self, name, stat, known, expected):
+        if name == "hp":
+            f_max = PokemonGame.get_hp_iv_value_max
+            f_min = PokemonGame.get_hp_iv_value_min
+        else:
+            f_max = PokemonGame.get_iv_value_max
+            f_min = PokemonGame.get_iv_value_min
+            
+        min_iv = max(f_min(self.current_level, getattr(known.base, name), getattr(known.ev, name), stat, getattr(known.nature, name)), getattr(self.min_iv, name))
+        max_iv = min(f_max(self.current_level, getattr(known.base, name), getattr(known.ev, name), stat, getattr(known.nature, name)), getattr(self.max_iv, name))
+
+        if not min_iv <= getattr(expected.iv, name) <= max_iv:
+            raise InvalidStat("min/max " + name)
+            
+        setattr(self.min_iv, name, min_iv)
+        setattr(self.max_iv, name, max_iv)
+
+
+
+class PokemonKnownData(object):
+    def __init__(self, pokemon, nature, characteristics = None):
+        super(PokemonKnownData, self).__init__()
+        self.characteristics = characteristics
+        
+        if characteristics is not None:
+            self.characteristic_stat_name, self.characteristics_mod_5 = PokemonGame.characteristics_table[characteristics]
+        else:
+            self.characteristic_stat_name, self.characteristics_mod_5 = None, None
+        
+        self.pokemon = pokemon
+        self.nature = PokemonStat(1, *PokemonGame.nature_factors[nature][:-2]) # the last two are flavored tastes
+        
+        self.ev = PokemonStat(0, 0, 0, 0, 0, 0)
+        
+        self.base = PokemonStat(*PokemonGame.pokemon_base[pokemon])
+        
+    def _verify_characteristics(self, min_iv, max_iv):
+        if self.characteristics is not None:
+            iv_dict = max_iv.todict()
+            single_max_iv = max(iv_dict.itervalues())
+            highest_iv_names = set([stat_name for stat_name, iv in iv_dict if single_max_iv == iv])
+            if self.known.characteristic_stat_name not in highest_iv_names:
+                raise InvalidStat("highest expected iv mismatch owned characteristics " + name)
+            
+            if not any(a % 5 == self.characteristics_mod_5 for a in xrange(getattr(min_iv, self.characteristic_stat_name), getattr(max_iv, self.characteristic_stat_name) + 1)):
+                raise InvalidStat('invalid expected iv modulu 5 for owned characteristics text ' + name)
+            
+            # min_characteristics = getattr(min_iv, self.characteristic_stat_name)
+            # max_characteristics = getattr(max_iv, self.characteristic_stat_name)
+            # mod = min_characteristics % 5
+            # diff = max_characteristics - min_characteristics
+            # overlapped_characteristics_mod_5 = self.characteristics_mod_5 if self.characteristics_mod_5 != 0 else 5
+            # if diff + 1 < 5 and mod != self.characteristics_mod_5 and mod + diff < overlapped_characteristics_mod_5:
+                # raise InvalidStat("characteristics " + name)
+                
+    def verify_characteristics(self, found):
+        self._verify_characteristics(found.min_iv, found.max_iv)
+        
+    def initial_verify_characteristics(self, expected):
+        self._verify_characteristics(expected.iv, expected.iv)
+        
+class PokemonExpectedData(object):
+    def __init__(self, hidden_power = None):
+        super(PokemonExpectedData, self).__init__()
+        
+        self.hidden_power = hidden_power
+        if self.hidden_power is not None:
+            self.iv = PokemonStat(*PokemonGame.hidden_power_max_stat[hidden_power])
+        else:
+            self.iv = PokemonStat(31, 31, 31, 31, 31, 31)
+            
+    def get_tested_level(self, name, found, known):
+        if name == 'hp':
+            f_min = PokemonGame.get_hp_iv_value_min
+            f_max = PokemonGame.get_hp_iv_value_max
+            f_value = PokemonGame.get_stat_hp_value
+        else:
+            f_min = PokemonGame.get_iv_value_min
+            f_max = PokemonGame.get_iv_value_max
+            f_value = PokemonGame.get_stat_value
+            
+        base = getattr(known.base, name)
+        nature = getattr(known.nature, name)
+        ev = getattr(known.ev, name)
+        iv = getattr(self.iv, name)
+            
+        min_lvl, max_lvl = None, None
+        for lvl in xrange(found.current_level, 101):
+            stat = f_value(lvl, base, iv, ev, nature)
+            if min_lvl is None and f_min(lvl, base, ev, stat, nature) == iv:
+                min_lvl = lvl
+            if max_lvl is None and f_max(lvl, base, ev, stat, nature) == iv:
+                max_lvl = lvl
+            if None not in (min_lvl, max_lvl):
+                break
+                
+        print "-", name, "min at lvl", min_lvl, "should be", f_value(min_lvl, base, iv, ev, nature)
+        print "-", name, "max at lvl", max_lvl, "should be", f_value(max_lvl, base, iv, ev, nature)
+        if None in (min_lvl, max_lvl):
+            raise InvalidLevelForStat(name)
+            
+        return min_lvl, max_lvl
+            
+class PokemonGeneFinder(object):
+    """
+    current_level:
+        the level of the pokemon when you see it for the first time. usually its 1 after you got it from an egg, or any other level you caught it in.
+        notice the implementation of PokemonGeneFinder dont support ev's and actually assume its 0, so just make sure you do not fight with the pokemon
+        you want to check so it wont gain any ev
+    pokemon:
+        the name of the pokemon you are leveling (not nickname). First letter should be cased, the rest are lower case.
+    nature:
+        the nature of the pokemon from the stat screen. currently you must see it before running this algorithm. in the future i will add a better test
+        for later natures accurding HP you see in the pokemon list (so less menus will be used).
+        see nature_factors
+    characteristics: 
+        the text you have in the pokemon state screen. it helps the algorithm to know the pokemon have wrong ivs on lower levels.
+        see characteristics_table
+    hidden_power: 
+        usually the algorithm searches for a pokemon with 31 in all iv's.
+        since hidden power is determined by the iv's, a different iv set is needed if you want a specific hidden power.
+        see hidden_power_max_stat
+    minimize_menu:
+        putting true in minimize_menu will return smaller level list
+        meaning you will know later the pokemon dont meet the requirement
+        but you will have to check its stats less.
+        You will want to put True in here if you have planty of rare candies and plannig on leveling up using the rare candies and not the day care.
+        using rare candies will make the pokemon level up much faster that leveling it with the daycare
+        so watching the menu each level will take longer than actually leveling it up.
+        Depending on your leveler implementation (the BOT), you might save the game before using the rare candies, and dont save after using the rare candies.
+          just remember if you had the pokemon you wanted after using the rare candies, and level it up normally (aka elite four) after reseting.
     
 
-    levels = [
-        hp_level_min, hp_level_max, 
-        attack_level_min, attack_level_max, 
-        defense_level_min, defense_level_max, 
-        speed_level_min, speed_level_max, 
-        special_attack_level_min, special_attack_level_max, 
-        special_defense_level_min, special_defense_level_max
-    ]
-    levels = sorted(list(set(levels)))
-    if None in levels:
-        print "invalid needed level", levels
-        return None
-    return levels
+    I used tables from 
+        http://www.psypokes.com/ 
+    I used equations found in 
+        http://bulbapedia.bulbagarden.net/wiki/Main_Page
+
+    """
+    def __init__(self, current_level, pokemon, nature, characteristics = None, hidden_power = None, minimize_menu = False):
+        super(PokemonGeneFinder, self).__init__()
+        
+        self.minimize_menu = minimize_menu 
+        self.found = PokemonFoundData(current_level)
+        self.known = PokemonKnownData(pokemon, nature, characteristics)
+        self.expected = PokemonExpectedData(hidden_power)
+        
+    def verify_level(self, current_level, stat):
+        self.found.current_level = current_level
+        hp, attack, defense, speed, special_attack, special_defense = stat
+        try:
+            self.found.verify_level_stat("hp", hp, self.known, self.expected)
+            self.found.verify_level_stat("attack", attack, self.known, self.expected)
+            self.found.verify_level_stat("defense", defense, self.known, self.expected)
+            self.found.verify_level_stat("speed", speed, self.known, self.expected)
+            self.found.verify_level_stat("special_attack", special_attack, self.known, self.expected)
+            self.found.verify_level_stat("special_defense", special_defense, self.known, self.expected)
+        except NoSuchIVForStat:
+            raise InvalidLevel("stat")
+            
+        try:
+            self.known.verify_characteristics(self.found)
+        except InvalidStat:
+            raise InvalidLevel("characteristics")
+        
+    def _statisfy_restraint(self, lvl_set, name, lvl, known, expected):
+        if name == 'hp':
+            f_min = PokemonGame.get_hp_iv_value_min
+            f_max = PokemonGame.get_hp_iv_value_max
+            f_value = PokemonGame.get_stat_hp_value
+        else:
+            f_min = PokemonGame.get_iv_value_min
+            f_max = PokemonGame.get_iv_value_max
+            f_value = PokemonGame.get_stat_value
+            
+        base = getattr(known.base, name)
+        nature = getattr(known.nature, name)
+        ev = getattr(known.ev, name)
+        iv = getattr(expected.iv, name)
+        
+        stat = f_value(lvl, base, iv, ev, nature)
+        satisfied = False
+        if name + "_max" in lvl_set:
+            if f_max(lvl, base, ev, stat, nature) == iv:
+                lvl_set.remove(name + "_max")
+                satisfied = True
+                
+        if name + "_min" in lvl_set:
+            if f_min(lvl, base, ev, stat, nature) == iv:
+                lvl_set.remove(name + "_min")
+                satisfied = True
+
+        return satisfied
+                
+    def get_tested_levels(self):
+        
+        self.known.initial_verify_characteristics(self.expected)
+        
+        hp_level_min, hp_level_max = self.expected.get_tested_level("hp", self.found, self.known)
+        attack_level_min, attack_level_max  = self.expected.get_tested_level("attack", self.found, self.known)
+        defense_level_min, defense_level_max = self.expected.get_tested_level("defense", self.found, self.known)
+        speed_level_min, speed_level_max = self.expected.get_tested_level("speed", self.found, self.known)
+        special_attack_level_min, special_attack_level_max = self.expected.get_tested_level("special_attack", self.found, self.known)
+        special_defense_level_min, special_defense_level_max = self.expected.get_tested_level("special_defense", self.found, self.known)
+        
+        sorted_levels = sorted(list(set([
+            hp_level_min, hp_level_max, 
+            attack_level_min, attack_level_max, 
+            defense_level_min, defense_level_max, 
+            speed_level_min, speed_level_max, 
+            special_attack_level_min, special_attack_level_max, 
+            special_defense_level_min, special_defense_level_max
+        ])))
+        
+        if self.minimize_menu:
+            levels = set([])
+            restraints_left = set(["hp_max", "hp_min", "attack_max", "attack_min", "defense_max", "defense_min", "speed_max", "speed_min", "special_attack_max", "special_attack_min", "special_defense_max", "special_defense_min",])
+            for lvl in sorted_levels[::-1]:
+                for name in ['hp', 'attack', 'defense', 'speed', 'special_attack', 'special_defense',]:
+                    if self._statisfy_restraint(restraints_left, name, lvl, self.known, self.expected):
+                        levels.add(lvl)
+
+            sorted_levels = sorted(list(levels))
+
+        return sorted_levels
+
+gf = PokemonGeneFinder(1, "Abra", "careful", hidden_power = None)
+print "levels", gf.get_tested_levels()
